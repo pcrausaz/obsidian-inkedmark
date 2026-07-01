@@ -53,7 +53,7 @@ import {
 } from "../model/document";
 import { AddStroke, ClearRegion, MoveStrokes, RemoveStrokes } from "../model/commands";
 import { History } from "../model/history";
-import { buildInkFile, parseInkFile } from "../model/serialize";
+import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize";
 import {
   PointerController,
   type PointerControllerCallbacks,
@@ -112,10 +112,11 @@ export class InkView extends TextFileView {
   private toolState: ToolbarState;
   private readonly buildLabel: string;
 
-  // Text-layer panel (searchable markdown body).
+  // Text-layer panel (searchable markdown body — prose only; frontmatter hidden).
   private textPanelEl: HTMLElement | null = null;
   private textArea: HTMLTextAreaElement | null = null;
   private showTextPanel = false;
+  private frontmatter = "";
 
   // Wet-render throttle: coalesce many pointermoves into one draw per frame.
   private wetFrame = 0;
@@ -183,11 +184,18 @@ export class InkView extends TextFileView {
     this.strokeSeq = strokeCount(this.doc);
     this.history.clear();
     this.rebuildIndex();
-    if (this.textArea) this.textArea.value = this.bodyText;
+    this.syncPanelFromBody();
     if (this.built) {
       this.layout();
       this.updateStatus();
     }
+  }
+
+  /** Load the panel with the body's prose, keeping frontmatter aside. */
+  private syncPanelFromBody(): void {
+    const { frontmatter, prose } = splitFrontmatter(this.bodyText);
+    this.frontmatter = frontmatter;
+    if (this.textArea) this.textArea.value = prose;
   }
 
   clear(): void {
@@ -250,7 +258,7 @@ export class InkView extends TextFileView {
     if (!this.textPanelEl || !this.textArea) return;
     this.textPanelEl.style.display = this.showTextPanel ? "" : "none";
     if (this.showTextPanel) {
-      this.textArea.value = this.bodyText;
+      this.syncPanelFromBody();
       this.textArea.focus();
     }
     this.layout();
@@ -314,11 +322,13 @@ export class InkView extends TextFileView {
       text: "Text layer — searchable transcription, [[links]], #tags",
     });
     this.textArea = this.textPanelEl.createEl("textarea", { cls: "inkedmark-textpanel-input" });
-    this.textArea.value = this.bodyText;
+    this.textArea.placeholder = "Transcription, key points, [[links]], #tags…";
+    this.syncPanelFromBody();
     this.textPanelEl.style.display = this.showTextPanel ? "" : "none";
     this.registerDomEvent(this.textArea, "input", () => {
       if (!this.textArea) return;
-      this.bodyText = this.textArea.value;
+      // The panel edits prose only; frontmatter is preserved untouched.
+      this.bodyText = this.frontmatter + this.textArea.value;
       this.requestSave();
     });
 

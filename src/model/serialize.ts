@@ -203,6 +203,15 @@ export function decodeDocument(payload: string, fallbackWidth = 1024): InkDocume
 
 // --- Full `.ink.md` file <-> (body, document) -------------------------------
 
+const FRONTMATTER_RE = /^(\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?)([\s\S]*)$/;
+
+/** Split leading YAML frontmatter from the rest of the body (prose). */
+export function splitFrontmatter(body: string): { frontmatter: string; prose: string } {
+  const match = FRONTMATTER_RE.exec(body);
+  if (match) return { frontmatter: match[1], prose: match[2] };
+  return { frontmatter: "", prose: body };
+}
+
 export interface ParsedInkFile {
   /** Markdown body with the data block removed (the text layer + user prose). */
   body: string;

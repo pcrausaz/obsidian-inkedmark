@@ -9,6 +9,7 @@ import {
   encodeDocument,
   parseInkFile,
   quantizePts,
+  splitFrontmatter,
 } from "../../src/model/serialize";
 
 function makeDoc(strokes: Stroke[]): InkDocument {
@@ -155,5 +156,26 @@ describe("ink file split / build", () => {
   it("buildInkFile emits a fenced data comment block", () => {
     const file = buildInkFile("# T", makeDoc([]));
     expect(file).toMatch(/%%inkedmark\nv1:[A-Za-z0-9+/=]+\n%%/);
+  });
+});
+
+describe("splitFrontmatter", () => {
+  it("separates frontmatter from prose", () => {
+    const body = "---\ninkedmark: true\ntags: [a]\n---\n\n# Title\n\nProse.";
+    const { frontmatter, prose } = splitFrontmatter(body);
+    expect(frontmatter).toBe("---\ninkedmark: true\ntags: [a]\n---\n");
+    expect(prose).toBe("\n# Title\n\nProse.");
+  });
+
+  it("returns empty frontmatter when there is none", () => {
+    const { frontmatter, prose } = splitFrontmatter("# Title\n\nProse.");
+    expect(frontmatter).toBe("");
+    expect(prose).toBe("# Title\n\nProse.");
+  });
+
+  it("recombines to the original body", () => {
+    const body = "---\na: 1\n---\n# T\ntext";
+    const { frontmatter, prose } = splitFrontmatter(body);
+    expect(frontmatter + prose).toBe(body);
   });
 });
