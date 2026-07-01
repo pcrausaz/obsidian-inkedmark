@@ -1,0 +1,105 @@
+/* InkedMark — view + toolbar styles. */
+
+.inkedmark-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.inkedmark-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  flex: 0 0 auto;
+}
+
+.inkedmark-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.inkedmark-toolbar button.is-active {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+}
+
+.inkedmark-toolbar .inkedmark-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--background-modifier-border);
+  margin: 0 2px;
+}
+
+.inkedmark-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--background-modifier-border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.inkedmark-swatch.is-active {
+  border-color: var(--text-normal);
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+/* Vertical paper-roll surface: a viewport-clipped stack. The canvases are
+   pinned to the visible viewport; a transparent scroll overlay on top owns
+   scrolling and pointer input. */
+.inkedmark-surface {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: var(--background-secondary);
+}
+
+/* Visible "page" behind the ink, pinned to the viewport (uniform color). */
+.inkedmark-paper-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--background-primary);
+  box-shadow: 0 0 0 1px var(--background-modifier-border);
+  z-index: 0;
+}
+
+.inkedmark-canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  pointer-events: none;
+}
+
+.inkedmark-canvas-dry {
+  z-index: 1;
+}
+
+.inkedmark-canvas-wet {
+  z-index: 2;
+}
+
+/* Transparent overlay that scrolls and receives pen/touch input. */
+.inkedmark-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 3;
+  touch-action: pan-y;
+}
+
+.inkedmark-paper {
+  position: relative;
+  pointer-events: none;
+}

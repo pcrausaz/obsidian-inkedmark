@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output (release artifacts are attached to GitHub Releases, not committed)
+main.js
+main.js.map
+*.js.map
+
+# Plugin runtime data
+data.json
+
+# Test / coverage
+coverage/
+
+# Local dev deploy target (machine-specific vault path)
+.deploy-target
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.log

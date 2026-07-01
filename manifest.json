@@ -1,0 +1,10 @@
+{
+  "id": "inkedmark",
+  "name": "InkedMark",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Handwriting that lives inside your Obsidian notes — pressure-aware ink, fused with markdown, searchable and graphable.",
+  "author": "Pascal Crausaz",
+  "authorUrl": "https://inkedmark.com",
+  "isDesktopOnly": false
+}
