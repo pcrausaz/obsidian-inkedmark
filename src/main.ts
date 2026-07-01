@@ -14,11 +14,19 @@ import { ICON_INK_NOTE, registerIcons } from "./icons";
 import { emptyDocument } from "./model/document";
 import { buildInkFile, encodeDocument } from "./model/serialize";
 import { buildInlineBlock } from "./model/inline-block";
+import type { RecognitionProvider } from "./recognition/provider";
+import { createProviderRegistry, resolveProvider } from "./recognition/registry";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
 
 export default class InkedMarkPlugin extends Plugin {
   override settings!: InkedMarkSettings;
+  readonly providers = createProviderRegistry();
+
+  /** The recognition provider selected in settings (manual in v1). */
+  activeProvider(): RecognitionProvider {
+    return resolveProvider(this.providers, this.settings.recognitionProviderId);
+  }
 
   override async onload(): Promise<void> {
     await this.loadSettings();
@@ -71,7 +79,11 @@ export default class InkedMarkPlugin extends Plugin {
     this.addCommand({
       id: "recognize-handwriting",
       name: "Recognize handwriting in this note",
-      callback: () => new Notice("InkedMark: handwriting recognition arrives in a later release."),
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(InkView);
+        if (view && !checking) void view.recognize(this.activeProvider());
+        return !!view;
+      },
     });
 
     this.addCommand({

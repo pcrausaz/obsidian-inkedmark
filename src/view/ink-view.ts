@@ -17,7 +17,7 @@
  * already folds in both scroll position and horizontal centering.
  */
 
-import { TextFileView, type WorkspaceLeaf } from "obsidian";
+import { Notice, TextFileView, type WorkspaceLeaf } from "obsidian";
 import {
   BUILD_ID,
   DEFAULT_PAPER_HEIGHT,
@@ -54,6 +54,8 @@ import {
 import { AddStroke, ClearRegion, MoveStrokes, RemoveStrokes } from "../model/commands";
 import { History } from "../model/history";
 import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize";
+import type { RecognitionProvider } from "../recognition/provider";
+import { writeTextSection } from "../recognition/text-layer";
 import {
   PointerController,
   type PointerControllerCallbacks,
@@ -250,6 +252,27 @@ export class InkView extends TextFileView {
 
   zoomOut(): void {
     if (this.built) this.zoomBy(1 / 1.25);
+  }
+
+  /**
+   * Run a recognition provider over this note's strokes and merge any recognized
+   * text into the body's managed text section. The manual provider is a no-op.
+   */
+  async recognize(provider: RecognitionProvider): Promise<void> {
+    const strokes = primaryRegion(this.doc).strokes;
+    if (strokes.length === 0) {
+      new Notice("InkedMark: nothing to recognize yet.");
+      return;
+    }
+    const result = await provider.recognize({ strokes });
+    if (result.text.trim()) {
+      this.bodyText = writeTextSection(this.bodyText, result.text);
+      this.syncPanelFromBody();
+      this.requestSave();
+      new Notice(`InkedMark: recognized ${strokes.length} strokes into the text layer.`);
+    } else {
+      new Notice("InkedMark: manual transcription — type it in the text-layer panel (⌸).");
+    }
   }
 
   /** Show/hide the text-layer panel (searchable markdown body). */

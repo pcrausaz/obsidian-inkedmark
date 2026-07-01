@@ -1,6 +1,7 @@
 import { type App, Platform, PluginSettingTab, Setting } from "obsidian";
 import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_WIDTH, PALETTE, SIZES } from "./constants";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
+import { providerLabel } from "./recognition/registry";
 import type InkedMarkPlugin from "./main";
 
 export type ToolId = "pen" | "eraser" | "select" | "pan";
@@ -107,5 +108,16 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }),
       );
+
+    new Setting(containerEl)
+      .setName("Handwriting recognition")
+      .setDesc("Provider that turns strokes into searchable text. v1 is manual transcription.")
+      .addDropdown((dropdown) => {
+        for (const id of this.plugin.providers.keys()) dropdown.addOption(id, providerLabel(id));
+        dropdown.setValue(this.plugin.settings.recognitionProviderId).onChange(async (value) => {
+          this.plugin.settings.recognitionProviderId = value;
+          await this.plugin.saveSettings();
+        });
+      });
   }
 }

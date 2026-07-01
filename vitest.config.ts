@@ -17,6 +17,8 @@ export default defineConfig({
         "src/canvas/zoom.ts",
         "src/input/palm-rejection.ts",
         "src/recognition/text-layer.ts",
+        "src/recognition/registry.ts",
+        "src/recognition/manual.ts",
       ],
       thresholds: {
         lines: 80,
