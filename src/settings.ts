@@ -4,7 +4,7 @@ import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import { providerLabel } from "./recognition/registry";
 import type InkedMarkPlugin from "./main";
 
-export type ToolId = "pen" | "eraser" | "select" | "pan";
+export type ToolId = "pen" | "highlighter" | "eraser" | "select";
 
 export interface InkedMarkSettings {
   pressureEnabled: boolean;
@@ -107,6 +107,61 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           this.plugin.settings.defaultColor = value;
           await this.plugin.saveSettings();
         }),
+      );
+
+    const tools: Record<ToolId, string> = {
+      pen: "Pen",
+      highlighter: "Highlighter",
+      eraser: "Eraser",
+      select: "Select",
+    };
+    new Setting(containerEl)
+      .setName("Default tool")
+      .setDesc("Tool selected when an ink note opens.")
+      .addDropdown((dropdown) => {
+        for (const [id, label] of Object.entries(tools)) dropdown.addOption(id, label);
+        dropdown.setValue(this.plugin.settings.defaultTool).onChange(async (value) => {
+          this.plugin.settings.defaultTool = value as ToolId;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl).setName("Default stroke size").addDropdown((dropdown) => {
+      for (const size of SIZES) dropdown.addOption(String(size), String(size));
+      dropdown.setValue(String(this.plugin.settings.defaultSize)).onChange(async (value) => {
+        this.plugin.settings.defaultSize = Number(value);
+        await this.plugin.saveSettings();
+      });
+    });
+
+    new Setting(containerEl)
+      .setName("Highlighter opacity")
+      .setDesc("Transparency of highlighter strokes.")
+      .addSlider((slider) =>
+        slider
+          .setLimits(10, 100, 5)
+          .setValue(Math.round(this.plugin.settings.highlighterAlpha * 100))
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.highlighterAlpha = value / 100;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Custom colors")
+      .setDesc("Extra palette swatches, as comma-separated hex (e.g. #ff8800, #00ccaa).")
+      .addText((text) =>
+        text
+          .setPlaceholder("#ff8800, #00ccaa")
+          .setValue(this.plugin.settings.customColors.join(", "))
+          .onChange(async (value) => {
+            this.plugin.settings.customColors = value
+              .split(",")
+              .map((c) => c.trim())
+              .filter((c) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c));
+            await this.plugin.saveSettings();
+          }),
       );
 
     new Setting(containerEl)

@@ -39,6 +39,8 @@ function get2dContext(
 }
 
 export class Renderer {
+  /** Highlighter opacity (0..1); overridable from settings. */
+  highlighterAlpha = DEFAULT_HIGHLIGHTER_ALPHA;
   private readonly dryCtx: CanvasRenderingContext2D;
   private readonly wetCtx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -116,7 +118,7 @@ export class Renderer {
 
     ctx.save();
     if (style.tool === "highlighter") {
-      ctx.globalAlpha = DEFAULT_HIGHLIGHTER_ALPHA;
+      ctx.globalAlpha = this.highlighterAlpha;
       ctx.globalCompositeOperation = "multiply";
     }
     ctx.fillStyle = style.color;

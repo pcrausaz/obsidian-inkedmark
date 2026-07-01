@@ -149,7 +149,7 @@ export class InkView extends TextFileView {
     this.debug = plugin.settings.debugHud;
     this.doc = emptyDocument(plugin.settings.paperWidth);
     this.toolState = {
-      tool: "pen",
+      tool: plugin.settings.defaultTool,
       color: plugin.settings.defaultColor,
       size: plugin.settings.defaultSize,
       pressureEnabled: plugin.settings.pressureEnabled,
@@ -300,7 +300,8 @@ export class InkView extends TextFileView {
       this.toolState.color = PALETTE[1];
     }
 
-    this.toolbar = new Toolbar(root, PALETTE, SIZES, this.toolState, {
+    const palette = [...PALETTE, ...this.plugin.settings.customColors];
+    this.toolbar = new Toolbar(root, palette, SIZES, this.toolState, {
       onToolChange: (tool) => {
         this.toolState.tool = tool;
         if (tool !== "select") this.clearSelection();
@@ -360,6 +361,7 @@ export class InkView extends TextFileView {
       this.wetCanvas,
       this.plugin.settings.desynchronizedCanvas,
     );
+    this.renderer.highlighterAlpha = this.plugin.settings.highlighterAlpha;
 
     this.pointer = new PointerController(
       this.scrollEl,

@@ -566,13 +566,22 @@ obsidian-inkedmark/
   (`view/embed-processor.ts`), with captions; "Insert inline handwriting" command.
   Search/graph/backlinks/Quick-Switcher work for free because the text layer and
   frontmatter `tags` are real markdown (see §6) — no custom index.
-- **0.4 — Recognition slot + live preview.** `RecognitionProvider` wired with
-  `ManualProvider` default; CodeMirror editor extension so inline blocks render
-  in live preview (not just reading mode); optional on-device HWR prototype
-  behind a flag.
-- **0.5 — Polish & release.** Settings tab; mobile/iPad QA pass; `release.yml`;
-  website + `pages.yml`; README with GIFs; community-plugin submission; BRAT
-  beta.
+- **0.4 — Recognition slot + live preview. ✅ done.** `RecognitionProvider`
+  registry (`recognition/registry.ts`) with `ManualProvider` default, selected
+  via settings and run by the "Recognize handwriting" command (writes into the
+  managed text section). _Live preview:_ Obsidian runs
+  `registerMarkdownCodeBlockProcessor` in both reading mode AND Live Preview, so
+  ```` ```inkedmark ```` blocks already render in LP — a separate CM6 widget
+  would be redundant and risk breaking source editing, so it was intentionally
+  not built. On-device HWR prototype deferred (no engine ships in v1, §7).
+- **0.5 — Polish & release. ◐ automatable parts done.** Settings tab expanded
+  (pressure, desync canvas, paper width, default color/tool/size, highlighter
+  opacity, custom colors, recognition provider, iPad Scribble callout);
+  `release.yml` (tag → GitHub Release with the 3 artifacts); `pages.yml` +
+  `docs/` website (CNAME `inkedmark.com`); reading-mode embed race fixed;
+  `RELEASE.md`; `QA.md` on-device checklist. **Remaining (human-only):** demo
+  GIFs/screenshots, the on-device QA pass, community-plugin submission PR, and
+  the BRAT beta — see `RELEASE.md`.
   - _Future task:_ **pen-capture self-test** — a command that asks the user to
     draw N strokes, measures the pointer-event delivery ratio (reusing the 0.1
     debug-HUD infra), and, if capture is low, nudges them to disable iPadOS
