@@ -14,6 +14,9 @@ export default defineConfig({
         "src/canvas/viewport.ts",
         "src/canvas/hit-test.ts",
         "src/canvas/spatial-index.ts",
+        "src/canvas/zoom.ts",
+        "src/input/palm-rejection.ts",
+        "src/recognition/text-layer.ts",
       ],
       thresholds: {
         lines: 80,
