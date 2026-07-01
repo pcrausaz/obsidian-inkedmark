@@ -19,19 +19,18 @@ See `QA.md` for the test pass that surfaced these.
   guard the transition. Do NOT filter "straight" strokes — that would delete
   legitimate ruled lines.
 
-### P1 — `![[*.ink.md]]` embed inconsistent across reading vs live preview
-
-- **Seen:** the inline file-embed renders the ink in live preview but shows an
-  empty/blank area in reading mode (only the title link appears).
-- **Cause:** our markdown post-processor races Obsidian's async embed load; in
-  reading mode Obsidian re-populates the `.internal-embed` after we render,
-  overwriting our canvas.
-- **Fix (0.5 polish):** use a `MutationObserver`/`MarkdownRenderChild` on the
-  embed and re-render when Obsidian finishes loading it, or hook the embed
-  more robustly (Excalidraw-style). Track back-navigation UX too: opening the
-  ink note from an embed should leave an obvious way back (Obsidian back arrow).
-
 ## Fixed
+
+### P1 — `![[*.ink.md]]` embed blank in reading mode (async race) ✅
+
+- The file-embed post-processor raced Obsidian's async embed population; in
+  reading mode Obsidian repopulated the `.internal-embed` after our render,
+  blanking the ink.
+- **Fix:** `mountFileEmbed` re-paints via a bounded `MutationObserver`
+  (`MAX_REPAINTS`), disconnecting during its own writes and on unload via a
+  `MarkdownRenderChild`. Needs an on-device re-check in reading mode.
+- _Still open (UX):_ opening the ink note from an embed should leave an obvious
+  way back — rely on Obsidian's back arrow / tabs; revisit if users get stuck.
 
 ### P1 — Text-layer panel exposed YAML frontmatter ✅
 

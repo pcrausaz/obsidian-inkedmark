@@ -1,16 +1,23 @@
 /**
- * Reading-mode rendering of inline ```inkedmark``` blocks (§4.2, §15 phase 0.3).
+ * Inline rendering of handwriting in ordinary notes (§4.2, §15 phase 0.3/0.4).
  *
- * Registers a markdown code-block processor that decodes the stroke payload and
- * paints it read-only onto a static, DPR-aware canvas (via the same
- * perfect-freehand outline path the live renderer uses). Live-preview editing of
- * these blocks is Phase 0.4; here they are display-only.
- *
- * `![[*.ink.md]]` embeds are handled by Obsidian's normal file-embed machinery
- * (the file is real markdown) and need no code here.
+ * - ```inkedmark``` fenced blocks: a code-block processor decodes the payload and
+ *   paints it read-only onto a static, DPR-aware canvas. Obsidian runs code-block
+ *   processors in BOTH reading mode and Live Preview (when the block isn't being
+ *   edited), so this already covers live preview — a separate CM6 widget would be
+ *   redundant and risk breaking source editing. Interactive inline drawing stays
+ *   in dedicated `.ink.md` notes.
+ * - `![[*.ink.md]]` file embeds: a post-processor renders the referenced note's
+ *   ink inline. Obsidian populates embeds asynchronously and can clobber our
+ *   render in reading mode, so we re-paint via a bounded MutationObserver.
  */
 
-import type { MarkdownPostProcessorContext, Plugin } from "obsidian";
+import {
+  MarkdownRenderChild,
+  type MarkdownPostProcessorContext,
+  type Plugin,
+  type TFile,
+} from "obsidian";
 import { DEFAULT_HIGHLIGHTER_ALPHA, INK_FILE_SUFFIX } from "../constants";
 import { outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
 import { type Bounds, type InkDocument, documentBounds } from "../model/document";
@@ -19,32 +26,53 @@ import { SerializeError, decodeDocument, parseInkFile } from "../model/serialize
 
 const MAX_DPR = 3;
 const PAD = 6;
+const MAX_REPAINTS = 5;
 
 export function registerInkEmbeds(plugin: Plugin): void {
-  // ```inkedmark``` fenced blocks.
+  // ```inkedmark``` fenced blocks (renders in reading mode AND live preview).
   plugin.registerMarkdownCodeBlockProcessor("inkedmark", (source, el) => {
     renderInlineBlock(source, el);
   });
   // ![[*.ink.md]] file embeds -> render the referenced note's ink inline.
   plugin.registerMarkdownPostProcessor((el, ctx) => {
-    void renderFileEmbeds(plugin, el, ctx);
+    for (const embed of Array.from(el.querySelectorAll<HTMLElement>(".internal-embed"))) {
+      if (embed.hasClass("inkedmark-fileembed")) continue;
+      const src = embed.getAttribute("src");
+      if (!src) continue;
+      const file = plugin.app.metadataCache.getFirstLinkpathDest(src, ctx.sourcePath);
+      if (!file || !file.name.endsWith(INK_FILE_SUFFIX)) continue;
+      embed.addClass("inkedmark-fileembed");
+      mountFileEmbed(plugin, embed, file, ctx);
+    }
   });
 }
 
-async function renderFileEmbeds(
+/**
+ * Paint the referenced note's ink into `embed`, and keep it painted: Obsidian
+ * repopulates embeds asynchronously (especially in reading mode), so a bounded
+ * MutationObserver re-paints if our content is clobbered. Tied to the render
+ * lifecycle via a MarkdownRenderChild so the observer is disconnected on unload.
+ */
+function mountFileEmbed(
   plugin: Plugin,
-  el: HTMLElement,
+  embed: HTMLElement,
+  file: TFile,
   ctx: MarkdownPostProcessorContext,
-): Promise<void> {
-  const embeds = el.querySelectorAll<HTMLElement>(".internal-embed");
-  for (const embed of Array.from(embeds)) {
-    if (embed.hasClass("inkedmark-fileembed")) continue;
-    const src = embed.getAttribute("src");
-    if (!src) continue;
-    const file = plugin.app.metadataCache.getFirstLinkpathDest(src, ctx.sourcePath);
-    if (!file || !file.name.endsWith(INK_FILE_SUFFIX)) continue;
+): void {
+  let repaints = 0;
+  const observer = new MutationObserver(() => {
+    if (repaints >= MAX_REPAINTS) {
+      observer.disconnect();
+      return;
+    }
+    if (!embed.querySelector(".inkedmark-embed-title")) {
+      repaints++;
+      void paint();
+    }
+  });
 
-    embed.addClass("inkedmark-fileembed");
+  const paint = async (): Promise<void> => {
+    observer.disconnect();
     embed.empty();
     embed.createEl("a", {
       cls: "inkedmark-embed-title internal-link",
@@ -59,7 +87,13 @@ async function renderFileEmbeds(
     } catch {
       embed.createDiv({ cls: "inkedmark-embed-empty", text: "Could not load handwriting" });
     }
-  }
+    observer.observe(embed, { childList: true });
+  };
+
+  const child = new MarkdownRenderChild(embed);
+  child.onunload = () => observer.disconnect();
+  ctx.addChild(child);
+  void paint();
 }
 
 function renderInlineBlock(source: string, el: HTMLElement): void {
