@@ -1,4 +1,5 @@
 import {
+  type Editor,
   MarkdownView,
   Notice,
   Platform,
@@ -11,8 +12,10 @@ import { FRONTMATTER_FLAG, INK_FILE_SUFFIX, SCHEMA_VERSION, VIEW_TYPE_INK } from
 import { DEFAULT_SETTINGS, InkedMarkSettingTab, type InkedMarkSettings } from "./settings";
 import { ICON_INK_NOTE, registerIcons } from "./icons";
 import { emptyDocument } from "./model/document";
-import { buildInkFile } from "./model/serialize";
+import { buildInkFile, encodeDocument } from "./model/serialize";
+import { buildInlineBlock } from "./model/inline-block";
 import { InkView } from "./view/ink-view";
+import { registerInkEmbeds } from "./view/embed-processor";
 
 export default class InkedMarkPlugin extends Plugin {
   override settings!: InkedMarkSettings;
@@ -22,6 +25,7 @@ export default class InkedMarkPlugin extends Plugin {
     registerIcons();
 
     this.registerView(VIEW_TYPE_INK, (leaf) => new InkView(leaf, this));
+    registerInkEmbeds(this);
 
     this.addRibbonIcon(ICON_INK_NOTE, "Create handwriting note", () => {
       void this.createInkNote();
@@ -42,6 +46,15 @@ export default class InkedMarkPlugin extends Plugin {
         const eligible = !!leaf && !!file && (this.isInkFile(file) || leaf.view instanceof InkView);
         if (eligible && !checking && leaf) void this.toggleView(leaf);
         return eligible;
+      },
+    });
+
+    this.addCommand({
+      id: "insert-inline-handwriting",
+      name: "Insert inline handwriting",
+      editorCallback: (editor: Editor) => {
+        const payload = encodeDocument(emptyDocument(this.settings.paperWidth));
+        editor.replaceSelection(buildInlineBlock(payload));
       },
     });
 
