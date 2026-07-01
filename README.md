@@ -13,21 +13,27 @@ full technical brief, data formats, and roadmap.
 
 ## Status
 
-**Phase 0.1 — Foundation & ink MVP** (in progress):
+**Phases 0.1 – 0.3 complete.** The §10 latency Go/No-Go passed on an iPad Pro
+12.9″ 4th-gen (see the spec).
 
-- Repo scaffold + tooling: strict TypeScript, ESLint, Prettier, Vitest, esbuild,
-  version-bump, CI.
-- `*.ink.md` files rendered by a custom view (recognized via an
-  `inkedmark: true` frontmatter flag).
-- Pen tool with [`perfect-freehand`](https://github.com/steveruizok/perfect-freehand),
+- **0.1 — Foundation & ink MVP.** Strict-TypeScript tooling (ESLint, Prettier,
+  Vitest, esbuild, CI); `*.ink.md` files rendered by a custom view (recognized
+  via an `inkedmark: true` frontmatter flag); pen with
+  [`perfect-freehand`](https://github.com/steveruizok/perfect-freehand),
   pressure, coalesced pointer events, a wet/dry canvas split, and a vertical
-  paper-roll surface.
-- Single-file storage: a quantized + deflated stroke block embedded in the
-  markdown via an Obsidian `%%inkedmark … %%` comment.
+  paper-roll; single-file storage (quantized + deflated stroke block inside an
+  Obsidian `%%inkedmark … %%` comment).
+- **0.2 — Editing & robustness.** Highlighter, eraser, box-select/move/delete;
+  delta-based undo/redo; uniform-grid spatial index + hit-test; viewport culling
+  - O(1) incremental paint; palm-rejection; pinch-zoom + one/two-finger pan.
+- **0.3 — Markdown integration & search.** A text-layer panel (searchable
+  markdown body — transcription, `[[links]]`, `#tags`); reading-mode rendering of
+  inline ` ```inkedmark ` blocks and `![[*.ink.md]]` embeds, with captions.
 
-> **Go/No-Go:** Phase 0.1 ends with a wet-ink latency measurement on a physical
-> iPad in the Obsidian webview (see §10 of the spec). The whole premise rests on
-> this being good enough.
+**Search & graph:** because the text layer and frontmatter `tags` are ordinary
+markdown, Obsidian's core search, graph, backlinks, and Quick Switcher index
+handwritten notes with no extra work — find a sketch by its transcription, and
+`[[links]]`/`#tags` in the text layer become real graph edges.
 
 ## iPad / Apple Pencil setup — important
 

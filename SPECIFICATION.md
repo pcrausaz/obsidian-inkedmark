@@ -551,14 +551,21 @@ obsidian-inkedmark/
   coalesced events; wet/dry canvas + desynchronized ctx; vertical paper-roll;
   save/load with quantized+deflated block; minimal toolbar. **→ Run the §10
   Go/No-Go latency test on iPad.**
-- **0.2 — Editing & robustness.** Highlighter; eraser; box-select + move;
-  command-pattern undo/redo; spatial index; viewport culling + static-layer
-  cache; palm-rejection state machine; incremental debounced save; pinch/pan
-  gestures.
-- **0.3 — Markdown integration & search.** Text-layer panel (typed
-  transcription, links, tags) with verbatim body preservation; inline embeds
-  `![[*.ink.md]]` and ```` ```inkedmark ```` reading-mode post-processor;
-  captions; verify search/graph/backlinks/Quick-Switcher all work end-to-end.
+- **0.2 — Editing & robustness. ✅ done.** Highlighter; eraser; box-select +
+  move + delete; command-pattern undo/redo (delta-based `model/commands.ts` +
+  `history.ts`); uniform-grid spatial index + hit-test; viewport culling +
+  incremental commit paint (per-stroke, not full-doc); palm-rejection state
+  machine; debounced save; pinch-zoom + one/two-finger pan. _(A cached static
+  dry-layer bitmap was left out: culling + O(1) incremental paint already meet
+  the capture budget, and a bitmap cache risked the tuned wet/dry timing.)_
+- **0.3 — Markdown integration & search. ✅ done.** Text-layer panel (a textarea
+  bound to the markdown body — transcription, `[[links]]`, `#tags`) with verbatim
+  body preservation via `serialize.ts`; `recognition/text-layer.ts` pure managed-
+  section sync rules (the HWR write seam); reading-mode rendering of
+  ```` ```inkedmark ```` fenced blocks and `![[*.ink.md]]` file embeds
+  (`view/embed-processor.ts`), with captions; "Insert inline handwriting" command.
+  Search/graph/backlinks/Quick-Switcher work for free because the text layer and
+  frontmatter `tags` are real markdown (see §6) — no custom index.
 - **0.4 — Recognition slot + live preview.** `RecognitionProvider` wired with
   `ManualProvider` default; CodeMirror editor extension so inline blocks render
   in live preview (not just reading mode); optional on-device HWR prototype
