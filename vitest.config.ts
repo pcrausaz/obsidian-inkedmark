@@ -8,7 +8,13 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       // Pure modules that the layered architecture exists to keep testable.
-      include: ["src/model/**/*.ts", "src/ink/stroke-builder.ts", "src/canvas/viewport.ts"],
+      include: [
+        "src/model/**/*.ts",
+        "src/ink/stroke-builder.ts",
+        "src/canvas/viewport.ts",
+        "src/canvas/hit-test.ts",
+        "src/canvas/spatial-index.ts",
+      ],
       thresholds: {
         lines: 80,
         functions: 80,
