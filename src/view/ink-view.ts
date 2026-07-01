@@ -112,6 +112,11 @@ export class InkView extends TextFileView {
   private toolState: ToolbarState;
   private readonly buildLabel: string;
 
+  // Text-layer panel (searchable markdown body).
+  private textPanelEl: HTMLElement | null = null;
+  private textArea: HTMLTextAreaElement | null = null;
+  private showTextPanel = false;
+
   // Wet-render throttle: coalesce many pointermoves into one draw per frame.
   private wetFrame = 0;
   private pendingPredicted: PointerSample[] = [];
@@ -178,6 +183,7 @@ export class InkView extends TextFileView {
     this.strokeSeq = strokeCount(this.doc);
     this.history.clear();
     this.rebuildIndex();
+    if (this.textArea) this.textArea.value = this.bodyText;
     if (this.built) {
       this.layout();
       this.updateStatus();
@@ -238,6 +244,18 @@ export class InkView extends TextFileView {
     if (this.built) this.zoomBy(1 / 1.25);
   }
 
+  /** Show/hide the text-layer panel (searchable markdown body). */
+  toggleTextPanel(): void {
+    this.showTextPanel = !this.showTextPanel;
+    if (!this.textPanelEl || !this.textArea) return;
+    this.textPanelEl.style.display = this.showTextPanel ? "" : "none";
+    if (this.showTextPanel) {
+      this.textArea.value = this.bodyText;
+      this.textArea.focus();
+    }
+    this.layout();
+  }
+
   // --- DOM construction -----------------------------------------------------
 
   private buildDom(): void {
@@ -272,6 +290,7 @@ export class InkView extends TextFileView {
       onZoomIn: () => this.zoomIn(),
       onZoomOut: () => this.zoomOut(),
       onZoomReset: () => this.resetView(),
+      onToggleText: () => this.toggleTextPanel(),
     });
 
     this.surfaceEl = root.createDiv({ cls: "inkedmark-surface" });
@@ -287,6 +306,21 @@ export class InkView extends TextFileView {
 
     this.hudEl = this.surfaceEl.createDiv({ cls: "inkedmark-hud" });
     this.hudEl.style.display = this.debug ? "" : "none";
+
+    // Text-layer panel: the searchable markdown body (transcription, links, tags).
+    this.textPanelEl = root.createDiv({ cls: "inkedmark-textpanel" });
+    this.textPanelEl.createEl("div", {
+      cls: "inkedmark-textpanel-label",
+      text: "Text layer — searchable transcription, [[links]], #tags",
+    });
+    this.textArea = this.textPanelEl.createEl("textarea", { cls: "inkedmark-textpanel-input" });
+    this.textArea.value = this.bodyText;
+    this.textPanelEl.style.display = this.showTextPanel ? "" : "none";
+    this.registerDomEvent(this.textArea, "input", () => {
+      if (!this.textArea) return;
+      this.bodyText = this.textArea.value;
+      this.requestSave();
+    });
 
     this.renderer = new Renderer(
       this.dryCanvas,

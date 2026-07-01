@@ -57,6 +57,31 @@
   color: var(--text-normal);
 }
 
+/* Text-layer panel: the searchable markdown body. */
+.inkedmark-textpanel {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.inkedmark-textpanel-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.inkedmark-textpanel-input {
+  width: 100%;
+  min-height: 96px;
+  max-height: 30vh;
+  resize: vertical;
+  font-family: var(--font-text);
+  font-size: var(--font-ui-small);
+}
+
 /* Diagnostic input overlay (toggled via command / settings). */
 .inkedmark-hud {
   position: absolute;

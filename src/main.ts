@@ -46,6 +46,16 @@ export default class InkedMarkPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "toggle-text-layer",
+      name: "Toggle text layer panel",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(InkView);
+        if (view && !checking) view.toggleTextPanel();
+        return !!view;
+      },
+    });
+
+    this.addCommand({
       id: "recognize-handwriting",
       name: "Recognize handwriting in this note",
       callback: () => new Notice("InkedMark: handwriting recognition arrives in a later release."),
