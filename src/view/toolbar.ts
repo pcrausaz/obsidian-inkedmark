@@ -7,17 +7,19 @@
  */
 
 import { setIcon } from "obsidian";
-import type { Tool } from "../model/document";
+
+/** Tools selectable in the toolbar. Only pen/highlighter produce strokes. */
+export type ActiveTool = "pen" | "highlighter" | "eraser" | "select";
 
 export interface ToolbarState {
-  tool: Tool;
+  tool: ActiveTool;
   color: string;
   size: number;
   pressureEnabled: boolean;
 }
 
 export interface ToolbarCallbacks {
-  onToolChange(tool: Tool): void;
+  onToolChange(tool: ActiveTool): void;
   onColorChange(color: string): void;
   onSizeChange(size: number): void;
   onPressureToggle(enabled: boolean): void;
@@ -28,7 +30,7 @@ export interface ToolbarCallbacks {
 
 export class Toolbar {
   private readonly root: HTMLElement;
-  private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
+  private readonly toolButtons = new Map<ActiveTool, HTMLButtonElement>();
   private readonly swatches = new Map<string, HTMLButtonElement>();
   private readonly sizeButtons = new Map<number, HTMLButtonElement>();
   private pressureButton!: HTMLButtonElement;
@@ -49,6 +51,7 @@ export class Toolbar {
   private build(): void {
     this.addToolButton("pen", "pencil", "Pen (P)");
     this.addToolButton("highlighter", "highlighter", "Highlighter (H)");
+    this.addToolButton("eraser", "eraser", "Eraser (E)");
     this.addSeparator();
 
     for (const color of this.palette) {
@@ -95,7 +98,7 @@ export class Toolbar {
     this.statusEl.setText(text);
   }
 
-  private addToolButton(tool: Tool, icon: string, label: string): void {
+  private addToolButton(tool: ActiveTool, icon: string, label: string): void {
     const button = this.iconButton(icon, label, () => {
       this.state.tool = tool;
       this.callbacks.onToolChange(tool);

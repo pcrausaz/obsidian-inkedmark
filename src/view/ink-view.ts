@@ -21,6 +21,7 @@ import { TextFileView, type WorkspaceLeaf } from "obsidian";
 import {
   BUILD_ID,
   DEFAULT_PAPER_HEIGHT,
+  ERASER_RADIUS,
   FALLBACK_PRESSURE,
   MIN_SAMPLE_DISTANCE,
   PAPER_GROWTH_MARGIN,
@@ -30,16 +31,19 @@ import {
 } from "../constants";
 import { Renderer, type StrokeStyle } from "../canvas/renderer";
 import type { ViewportState } from "../canvas/viewport";
+import { strokeHitByPoint } from "../canvas/hit-test";
+import { SpatialIndex } from "../canvas/spatial-index";
 import { StrokeBuilder, type StrokeBuilderOptions, mapPressure } from "../ink/stroke-builder";
 import {
   type InkDocument,
   type Stroke,
+  type Tool,
   documentBounds,
   emptyDocument,
   primaryRegion,
   strokeCount,
 } from "../model/document";
-import { AddStroke, ClearRegion } from "../model/commands";
+import { AddStroke, ClearRegion, RemoveStrokes } from "../model/commands";
 import { History } from "../model/history";
 import { buildInkFile, parseInkFile } from "../model/serialize";
 import {
@@ -79,6 +83,8 @@ export class InkView extends TextFileView {
   private builderOpts: StrokeBuilderOptions;
   private strokeSeq = 0;
   private readonly history = new History();
+  private readonly index = new SpatialIndex();
+  private eraseIds = new Set<string>();
 
   private toolbar: Toolbar | null = null;
   private toolState: ToolbarState;
@@ -149,6 +155,7 @@ export class InkView extends TextFileView {
     this.doc = parsed.doc ?? emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = strokeCount(this.doc);
     this.history.clear();
+    this.rebuildIndex();
     if (this.built) {
       this.layout();
       this.updateStatus();
@@ -160,7 +167,12 @@ export class InkView extends TextFileView {
     this.doc = emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = 0;
     this.history.clear();
+    this.index.clear();
     if (this.built) this.renderDry();
+  }
+
+  private rebuildIndex(): void {
+    this.index.rebuild(primaryRegion(this.doc).strokes);
   }
 
   // --- Lifecycle ------------------------------------------------------------
@@ -315,14 +327,20 @@ export class InkView extends TextFileView {
   }
 
   private renderDry(): void {
-    this.renderer?.renderDocument(this.doc, this.toolState.pressureEnabled);
+    // `eraseIds` is empty except during a live erase gesture (preview).
+    this.renderer?.renderDocument(this.doc, this.toolState.pressureEnabled, this.eraseIds);
+  }
+
+  /** The drawing tool for a produced stroke (eraser/select never produce one). */
+  private strokeTool(): Tool {
+    return this.toolState.tool === "highlighter" ? "highlighter" : "pen";
   }
 
   private currentStyle(): StrokeStyle {
     return {
       color: this.toolState.color,
       size: this.toolState.size,
-      tool: this.toolState.tool,
+      tool: this.strokeTool(),
       usePressure: this.toolState.pressureEnabled,
     };
   }
@@ -337,11 +355,20 @@ export class InkView extends TextFileView {
 
   private readonly pointerCallbacks: PointerControllerCallbacks = {
     onStart: (sample) => {
+      if (this.toolState.tool === "eraser") {
+        this.eraseIds = new Set();
+        this.eraseAt(sample);
+        return;
+      }
       this.builder = new StrokeBuilder(this.builderOpts);
       this.builder.add(sample);
       this.renderer?.clearWet();
     },
     onMove: (coalesced, predicted) => {
+      if (this.toolState.tool === "eraser") {
+        for (const sample of coalesced) this.eraseAt(sample);
+        return;
+      }
       if (!this.builder) return;
       // Retain every coalesced sample immediately (cheap), but defer the
       // expensive outline draw to one rAF per frame — drawing more often than
@@ -351,9 +378,18 @@ export class InkView extends TextFileView {
       this.scheduleWet();
     },
     onEnd: (sample) => {
+      if (this.toolState.tool === "eraser") {
+        this.eraseCommit();
+        return;
+      }
       this.finishStroke(sample);
     },
     onCancel: () => {
+      if (this.toolState.tool === "eraser") {
+        this.eraseIds = new Set();
+        this.renderDry();
+        return;
+      }
       // Salvage rather than discard: iOS can fire pointercancel on a normal pen
       // lift (e.g. when the surface briefly interprets the drag as a scroll), so
       // dropping the stroke here would make just-drawn ink vanish.
@@ -476,12 +512,13 @@ export class InkView extends TextFileView {
       id: `s${++this.strokeSeq}`,
       color: this.toolState.color,
       size: this.toolState.size,
-      tool: this.toolState.tool,
+      tool: this.strokeTool(),
       pts: builder.points(),
     };
     // Record via the command stack (applies the add), then paint just this
     // stroke incrementally rather than re-outlining the whole document.
     this.history.push(this.doc, new AddStroke(stroke));
+    this.index.insert(stroke);
 
     this.ensurePaperHeight(this.surfaceEl.clientHeight);
     this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
@@ -489,8 +526,39 @@ export class InkView extends TextFileView {
     this.requestSave();
   }
 
+  // --- Eraser ---------------------------------------------------------------
+
+  /** Add any strokes under the eraser to the pending set and preview-hide them. */
+  private eraseAt(sample: { x: number; y: number }): void {
+    const radius = ERASER_RADIUS / (this.viewport.scale || 1);
+    const region = primaryRegion(this.doc);
+    let changed = false;
+    for (const id of this.index.queryPoint(sample.x, sample.y, radius)) {
+      if (this.eraseIds.has(id)) continue;
+      const stroke = region.strokes.find((s) => s.id === id);
+      if (stroke && strokeHitByPoint(stroke, sample.x, sample.y, radius)) {
+        this.eraseIds.add(id);
+        changed = true;
+      }
+    }
+    if (changed) this.renderDry();
+  }
+
+  /** Commit the erase gesture as a single undoable RemoveStrokes command. */
+  private eraseCommit(): void {
+    const ids = this.eraseIds;
+    this.eraseIds = new Set();
+    if (ids.size === 0) return;
+    this.history.push(this.doc, new RemoveStrokes(ids));
+    for (const id of ids) this.index.remove(id);
+    this.renderDry();
+    this.updateStatus();
+    this.requestSave();
+  }
+
   private undo(): void {
     if (!this.history.undo(this.doc)) return;
+    this.rebuildIndex();
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -498,6 +566,7 @@ export class InkView extends TextFileView {
 
   private redo(): void {
     if (!this.history.redo(this.doc)) return;
+    this.rebuildIndex();
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -507,6 +576,7 @@ export class InkView extends TextFileView {
     const region = primaryRegion(this.doc);
     if (region.strokes.length === 0) return;
     this.history.push(this.doc, new ClearRegion());
+    this.index.clear();
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -532,6 +602,9 @@ export class InkView extends TextFileView {
         break;
       case "h":
         this.setTool("highlighter");
+        break;
+      case "e":
+        this.setTool("eraser");
         break;
       default:
         break;

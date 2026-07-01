@@ -61,3 +61,6 @@ export const MIN_SAMPLE_DISTANCE = 1.4;
 
 /** Highlighter default opacity. */
 export const DEFAULT_HIGHLIGHTER_ALPHA = 0.4;
+
+/** Eraser hit radius in screen px (converted to world via the viewport scale). */
+export const ERASER_RADIUS = 12;

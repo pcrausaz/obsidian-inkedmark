@@ -118,8 +118,11 @@ export class Renderer {
     ctx.restore();
   }
 
-  /** Repaint the dry layer from committed strokes, culling off-screen ones. */
-  renderDocument(doc: InkDocument, usePressure: boolean): void {
+  /**
+   * Repaint the dry layer from committed strokes, culling off-screen ones.
+   * `hidden` strokes are skipped (used for live erase preview).
+   */
+  renderDocument(doc: InkDocument, usePressure: boolean, hidden?: ReadonlySet<string>): void {
     this.clear(this.dryCtx);
     this.applyTransform(this.dryCtx);
 
@@ -128,6 +131,7 @@ export class Renderer {
 
     for (const region of doc.regions) {
       for (const stroke of region.strokes) {
+        if (hidden?.has(stroke.id)) continue;
         const bounds = strokeBounds(stroke);
         if (bounds && (bounds.maxY < top || bounds.minY > bottom)) continue;
         this.fillStroke(this.dryCtx, stroke.pts, styleOf(stroke, usePressure), true);

@@ -14,6 +14,7 @@
  */
 
 import type { Vec2 } from "../canvas/viewport";
+import { PalmRejection, kindOf } from "./palm-rejection";
 
 export interface PointerSample {
   x: number;
@@ -48,29 +49,17 @@ export interface PointerControllerCallbacks {
   onDebug?(record: PointerDebugRecord): void;
 }
 
-export interface PointerControllerOptions {
-  /** Whether a given pointer should draw. Defaults to pen + mouse. */
-  shouldDraw?: (event: PointerEvent) => boolean;
-}
-
-function defaultShouldDraw(event: PointerEvent): boolean {
-  return event.pointerType === "pen" || event.pointerType === "mouse";
-}
-
 export class PointerController {
   private activePointerId: number | null = null;
   private panPointerId: number | null = null;
   private lastPanY = 0;
-  private readonly shouldDraw: (event: PointerEvent) => boolean;
+  private readonly palm = new PalmRejection();
 
   constructor(
     private readonly el: HTMLElement,
     private readonly toWorld: (clientX: number, clientY: number) => Vec2,
     private readonly callbacks: PointerControllerCallbacks,
-    options: PointerControllerOptions = {},
-  ) {
-    this.shouldDraw = options.shouldDraw ?? defaultShouldDraw;
-  }
+  ) {}
 
   attach(): void {
     this.el.addEventListener("pointerdown", this.onPointerDown);
@@ -103,7 +92,11 @@ export class PointerController {
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (this.shouldDraw(event)) {
+    const role = this.palm.down(event.pointerId, kindOf(event.pointerType));
+
+    if (role === "draw") {
+      // A stylus landing cancels an in-progress finger pan.
+      this.panPointerId = null;
       if (this.activePointerId !== null) {
         // A previous stroke never received its pointerup — iOS drops it when you
         // lift and re-touch quickly (e.g. the down-stroke then the bar of a "T").
@@ -118,16 +111,17 @@ export class PointerController {
       this.callbacks.onStart(this.toSample(event));
       return;
     }
-    // A finger with nothing else in progress starts a scroll pan.
-    if (
-      event.pointerType === "touch" &&
-      this.panPointerId === null &&
-      this.activePointerId === null &&
-      this.callbacks.onPan
-    ) {
+
+    if (role === "pan" && this.callbacks.onPan) {
       this.panPointerId = event.pointerId;
       this.lastPanY = event.clientY;
+      return;
     }
+
+    // "pinch" (two fingers) and "ignore" (palm / extra fingers): no draw or pan.
+    // Two-finger pinch-zoom lands in a later chunk; for now stop any single-finger
+    // pan so a second finger doesn't jitter the scroll.
+    if (role === "pinch") this.panPointerId = null;
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -155,6 +149,7 @@ export class PointerController {
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
+    this.palm.up(event.pointerId);
     if (event.pointerId === this.activePointerId) {
       event.preventDefault();
       this.release(event.pointerId);
@@ -166,6 +161,7 @@ export class PointerController {
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
+    this.palm.cancel(event.pointerId);
     if (event.pointerId === this.activePointerId) {
       this.release(event.pointerId);
       this.emitDebug("cancel", event, 0);
