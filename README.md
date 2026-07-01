@@ -25,7 +25,7 @@ full technical brief, data formats, and roadmap.
   Obsidian `%%inkedmark … %%` comment).
 - **0.2 — Editing & robustness.** Highlighter, eraser, box-select/move/delete;
   delta-based undo/redo; uniform-grid spatial index + hit-test; viewport culling
-  - O(1) incremental paint; palm-rejection; pinch-zoom + one/two-finger pan.
+  with O(1) incremental paint; palm-rejection; pinch-zoom + one/two-finger pan.
 - **0.3 — Markdown integration & search.** A text-layer panel (searchable
   markdown body — transcription, `[[links]]`, `#tags`); reading-mode rendering of
   inline ` ```inkedmark ` blocks and `![[*.ink.md]]` embeds, with captions.
