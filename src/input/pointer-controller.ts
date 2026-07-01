@@ -45,14 +45,28 @@ export interface PointerControllerCallbacks {
   onCancel(): void;
   /** Single-finger vertical pan; `deltaY` is how far to scroll down, in px. */
   onPan?(deltaY: number): void;
+  /** Two-finger pinch: incremental zoom factor about a client-space center, plus midpoint pan. */
+  onPinch?(info: {
+    scaleFactor: number;
+    centerX: number;
+    centerY: number;
+    dxCss: number;
+    dyCss: number;
+  }): void;
   /** Raw drawing-pointer events, for the diagnostic HUD. */
   onDebug?(record: PointerDebugRecord): void;
 }
 
+interface TouchPoint {
+  x: number;
+  y: number;
+}
+
 export class PointerController {
   private activePointerId: number | null = null;
-  private panPointerId: number | null = null;
-  private lastPanY = 0;
+  private readonly touches = new Map<number, TouchPoint>();
+  private pinchDist = 0;
+  private pinchMid: TouchPoint = { x: 0, y: 0 };
   private readonly palm = new PalmRejection();
 
   constructor(
@@ -95,8 +109,8 @@ export class PointerController {
     const role = this.palm.down(event.pointerId, kindOf(event.pointerType));
 
     if (role === "draw") {
-      // A stylus landing cancels an in-progress finger pan.
-      this.panPointerId = null;
+      // A stylus landing cancels any in-progress finger gesture.
+      this.touches.clear();
       if (this.activePointerId !== null) {
         // A previous stroke never received its pointerup — iOS drops it when you
         // lift and re-touch quickly (e.g. the down-stroke then the bar of a "T").
@@ -112,16 +126,10 @@ export class PointerController {
       return;
     }
 
-    if (role === "pan" && this.callbacks.onPan) {
-      this.panPointerId = event.pointerId;
-      this.lastPanY = event.clientY;
-      return;
+    if (role === "pan" || role === "pinch") {
+      this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.touches.size >= 2) this.initPinch();
     }
-
-    // "pinch" (two fingers) and "ignore" (palm / extra fingers): no draw or pan.
-    // Two-finger pinch-zoom lands in a later chunk; for now stop any single-finger
-    // pan so a second finger doesn't jitter the scroll.
-    if (role === "pinch") this.panPointerId = null;
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -141,12 +149,47 @@ export class PointerController {
       return;
     }
 
-    if (event.pointerId === this.panPointerId && this.callbacks.onPan) {
-      const deltaY = this.lastPanY - event.clientY;
-      this.lastPanY = event.clientY;
-      this.callbacks.onPan(deltaY);
+    const prev = this.touches.get(event.pointerId);
+    if (!prev) return;
+    const cur = { x: event.clientX, y: event.clientY };
+    this.touches.set(event.pointerId, cur);
+
+    if (this.touches.size === 1) {
+      this.callbacks.onPan?.(prev.y - cur.y);
+      return;
     }
+    // Two fingers: incremental pinch-zoom + midpoint pan.
+    const pair = this.firstTwoTouches();
+    if (!pair || !this.callbacks.onPinch) return;
+    const dist = distance(pair[0], pair[1]);
+    const mid = midpoint(pair[0], pair[1]);
+    if (this.pinchDist > 0) {
+      this.callbacks.onPinch({
+        scaleFactor: dist / this.pinchDist,
+        centerX: mid.x,
+        centerY: mid.y,
+        dxCss: mid.x - this.pinchMid.x,
+        dyCss: mid.y - this.pinchMid.y,
+      });
+    }
+    this.pinchDist = dist;
+    this.pinchMid = mid;
   };
+
+  private initPinch(): void {
+    const pair = this.firstTwoTouches();
+    if (!pair) return;
+    this.pinchDist = distance(pair[0], pair[1]);
+    this.pinchMid = midpoint(pair[0], pair[1]);
+  }
+
+  private firstTwoTouches(): [TouchPoint, TouchPoint] | null {
+    const it = this.touches.values();
+    const a = it.next();
+    const b = it.next();
+    if (a.done || b.done) return null;
+    return [a.value, b.value];
+  }
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     this.palm.up(event.pointerId);
@@ -157,7 +200,7 @@ export class PointerController {
       this.callbacks.onEnd(this.toSample(event));
       return;
     }
-    if (event.pointerId === this.panPointerId) this.panPointerId = null;
+    this.endTouch(event.pointerId);
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
@@ -168,11 +211,25 @@ export class PointerController {
       this.callbacks.onCancel();
       return;
     }
-    if (event.pointerId === this.panPointerId) this.panPointerId = null;
+    this.endTouch(event.pointerId);
   };
+
+  /** Drop a finger; if one remains, re-seed the pinch baseline for a clean pan. */
+  private endTouch(pointerId: number): void {
+    if (!this.touches.delete(pointerId)) return;
+    if (this.touches.size === 2) this.initPinch();
+  }
 
   private release(pointerId: number): void {
     if (this.el.hasPointerCapture(pointerId)) this.el.releasePointerCapture(pointerId);
     this.activePointerId = null;
   }
+}
+
+function distance(a: TouchPoint, b: TouchPoint): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function midpoint(a: TouchPoint, b: TouchPoint): TouchPoint {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }

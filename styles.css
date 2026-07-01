@@ -139,8 +139,7 @@
 .inkedmark-scroll {
   position: absolute;
   inset: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
   z-index: 3;
   touch-action: none;
 }

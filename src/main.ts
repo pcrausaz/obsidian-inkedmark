@@ -62,6 +62,26 @@ export default class InkedMarkPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "zoom-in",
+      name: "Zoom in",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(InkView);
+        if (view && !checking) view.zoomIn();
+        return !!view;
+      },
+    });
+
+    this.addCommand({
+      id: "zoom-out",
+      name: "Zoom out",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(InkView);
+        if (view && !checking) view.zoomOut();
+        return !!view;
+      },
+    });
+
+    this.addCommand({
       id: "toggle-input-debug-overlay",
       name: "Toggle input debug overlay",
       callback: () => void this.toggleDebugHud(),

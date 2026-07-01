@@ -38,6 +38,7 @@ import {
   strokeIntersectsRect,
 } from "../canvas/hit-test";
 import { SpatialIndex } from "../canvas/spatial-index";
+import { anchorScrollDelta, clampScale } from "../canvas/zoom";
 import { StrokeBuilder, type StrokeBuilderOptions, mapPressure } from "../ink/stroke-builder";
 import {
   type Bounds,
@@ -88,7 +89,8 @@ export class InkView extends TextFileView {
 
   private viewport: ViewportState = { scrollY: 0, scale: 1, width: 0 };
   private offsetX = 0;
-  private effectiveWidth = 0;
+  private paperWorldWidth = 0;
+  private scale = 1;
 
   private builder: StrokeBuilder | null = null;
   private builderOpts: StrokeBuilderOptions;
@@ -219,13 +221,21 @@ export class InkView extends TextFileView {
     if (this.built) this.layout();
   }
 
-  /** Scroll the paper roll back to the top (Phase 0.1 "fit / reset"). */
+  /** Reset zoom to 1 and scroll back to the top ("fit / reset"). */
   resetView(): void {
     if (!this.built) return;
-    this.scrollEl.scrollTo({ top: 0 });
-    this.viewport = { ...this.viewport, scrollY: 0 };
-    this.renderer?.setViewport(this.viewport, this.offsetX);
-    this.renderDry();
+    this.scale = 1;
+    this.scrollEl.scrollTo({ top: 0, left: 0 });
+    this.layout();
+    this.updateStatus();
+  }
+
+  zoomIn(): void {
+    if (this.built) this.zoomBy(1.25);
+  }
+
+  zoomOut(): void {
+    if (this.built) this.zoomBy(1 / 1.25);
   }
 
   // --- DOM construction -----------------------------------------------------
@@ -259,6 +269,9 @@ export class InkView extends TextFileView {
       onUndo: () => this.undo(),
       onRedo: () => this.redo(),
       onClear: () => this.clearStrokes(),
+      onZoomIn: () => this.zoomIn(),
+      onZoomOut: () => this.zoomOut(),
+      onZoomReset: () => this.resetView(),
     });
 
     this.surfaceEl = root.createDiv({ cls: "inkedmark-surface" });
@@ -297,9 +310,11 @@ export class InkView extends TextFileView {
     this.updateStatus();
   }
 
-  /** Toolbar readout: build id + live committed-stroke count (a testing aid). */
+  /** Toolbar readout: build id + live committed-stroke count + zoom (a testing aid). */
   private updateStatus(): void {
-    this.toolbar?.setStatus(`${this.buildLabel} · ${strokeCount(this.doc)} strokes`);
+    this.toolbar?.setStatus(
+      `${this.buildLabel} · ${strokeCount(this.doc)} strokes · ${Math.round(this.scale * 100)}%`,
+    );
   }
 
   // --- Layout / rendering ---------------------------------------------------
@@ -310,33 +325,63 @@ export class InkView extends TextFileView {
     const cssH = this.surfaceEl.clientHeight;
     if (cssW === 0 || cssH === 0) return;
 
-    this.effectiveWidth = Math.min(this.plugin.settings.paperWidth, cssW);
-    this.offsetX = Math.max(0, Math.round((cssW - this.effectiveWidth) / 2));
-    this.paperEl.style.width = `${this.effectiveWidth}px`;
-    this.paperEl.style.marginLeft = `${this.offsetX}px`;
-    this.paperBgEl.style.left = `${this.offsetX}px`;
-    this.paperBgEl.style.width = `${this.effectiveWidth}px`;
-    this.ensurePaperHeight(cssH);
+    // The roll's world width fits the surface at scale 1; zoom scales the visuals.
+    this.paperWorldWidth = Math.min(this.plugin.settings.paperWidth, cssW);
+    this.ensurePaperSize();
 
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
     this.renderer.resize(cssW, cssH, dpr);
-
-    this.viewport = { scrollY: this.scrollEl.scrollTop, scale: 1, width: this.effectiveWidth };
-    this.renderer.setViewport(this.viewport, this.offsetX);
+    this.syncViewport();
     this.renderDry();
   }
 
-  private ensurePaperHeight(viewportHeight: number): void {
+  /** Size the paper spacer (scroll range) in scaled/screen px. */
+  private ensurePaperSize(): void {
     const bounds = documentBounds(this.doc);
     const contentBottom = bounds ? bounds.maxY + PAPER_GROWTH_MARGIN : 0;
-    const height = Math.max(DEFAULT_PAPER_HEIGHT, viewportHeight, contentBottom);
-    this.paperEl.style.height = `${Math.ceil(height)}px`;
+    const surfaceH = this.surfaceEl.clientHeight;
+    const worldHeight = Math.max(DEFAULT_PAPER_HEIGHT, contentBottom, surfaceH / this.scale);
+    this.paperEl.style.width = `${Math.ceil(this.paperWorldWidth * this.scale)}px`;
+    this.paperEl.style.height = `${Math.ceil(worldHeight * this.scale)}px`;
+    this.paperEl.style.margin = "0 auto";
+  }
+
+  /** Derive scroll/offset (world) from the live paper vs surface rects. */
+  private syncViewport(): void {
+    if (!this.renderer) return;
+    const surf = this.surfaceEl.getBoundingClientRect();
+    const paper = this.paperEl.getBoundingClientRect();
+    this.offsetX = paper.left - surf.left;
+    const scrollY = (surf.top - paper.top) / this.scale;
+    this.viewport = { scrollY, scale: this.scale, width: this.paperWorldWidth };
+    this.renderer.setViewport(this.viewport, this.offsetX);
+    this.paperBgEl.style.left = `${this.offsetX}px`;
+    this.paperBgEl.style.width = `${paper.width}px`;
   }
 
   private onScroll(): void {
-    this.viewport = { ...this.viewport, scrollY: this.scrollEl.scrollTop };
-    this.renderer?.setViewport(this.viewport, this.offsetX);
+    this.syncViewport();
     this.scheduleDry();
+  }
+
+  /** Zoom about a client-space anchor, keeping the world point under it fixed. */
+  private applyZoom(nextScale: number, anchorX: number, anchorY: number): void {
+    const before = this.toWorld(anchorX, anchorY);
+    this.scale = clampScale(nextScale);
+    this.ensurePaperSize();
+    this.syncViewport();
+    const after = this.toWorld(anchorX, anchorY);
+    const delta = anchorScrollDelta(before, after, this.scale);
+    this.scrollEl.scrollLeft += delta.x;
+    this.scrollEl.scrollTop += delta.y;
+    this.syncViewport();
+    this.renderDry();
+    this.updateStatus();
+  }
+
+  private zoomBy(factor: number): void {
+    const rect = this.surfaceEl.getBoundingClientRect();
+    this.applyZoom(this.scale * factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
 
   private scheduleDry(): void {
@@ -394,7 +439,7 @@ export class InkView extends TextFileView {
 
   private toWorld(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.paperEl.getBoundingClientRect();
-    const scale = this.viewport.scale || 1;
+    const scale = this.scale || 1;
     return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale };
   }
 
@@ -460,6 +505,12 @@ export class InkView extends TextFileView {
       // Native touch-scroll is disabled (touch-action: none); drive it manually.
       // Setting scrollTop fires a scroll event -> onScroll() -> dry redraw.
       this.scrollEl.scrollTop += deltaY;
+    },
+    onPinch: (info) => {
+      // Two-finger midpoint pan, then zoom about the pinch center.
+      this.scrollEl.scrollLeft -= info.dxCss;
+      this.scrollEl.scrollTop -= info.dyCss;
+      this.applyZoom(this.scale * info.scaleFactor, info.centerX, info.centerY);
     },
     onDebug: (record) => this.onDebug(record),
   };
@@ -581,7 +632,7 @@ export class InkView extends TextFileView {
     this.history.push(this.doc, new AddStroke(stroke));
     this.index.insert(stroke);
 
-    this.ensurePaperHeight(this.surfaceEl.clientHeight);
+    this.ensurePaperSize();
     this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
     this.updateStatus();
     this.requestSave();

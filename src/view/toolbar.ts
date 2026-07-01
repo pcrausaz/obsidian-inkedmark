@@ -26,6 +26,9 @@ export interface ToolbarCallbacks {
   onUndo(): void;
   onRedo(): void;
   onClear(): void;
+  onZoomIn(): void;
+  onZoomOut(): void;
+  onZoomReset(): void;
 }
 
 export class Toolbar {
@@ -89,6 +92,11 @@ export class Toolbar {
     this.iconButton("undo-2", "Undo (Cmd/Ctrl+Z)", () => this.callbacks.onUndo());
     this.iconButton("redo-2", "Redo (Cmd/Ctrl+Shift+Z)", () => this.callbacks.onRedo());
     this.iconButton("trash-2", "Clear", () => this.callbacks.onClear());
+    this.addSeparator();
+
+    this.iconButton("zoom-out", "Zoom out", () => this.callbacks.onZoomOut());
+    this.iconButton("maximize", "Fit / reset view", () => this.callbacks.onZoomReset());
+    this.iconButton("zoom-in", "Zoom in", () => this.callbacks.onZoomIn());
 
     // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
     this.statusEl = this.root.createEl("span", { cls: "inkedmark-status" });
