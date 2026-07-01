@@ -31,6 +31,7 @@ export class Toolbar {
   private readonly swatches = new Map<string, HTMLButtonElement>();
   private readonly sizeButtons = new Map<number, HTMLButtonElement>();
   private pressureButton!: HTMLButtonElement;
+  private statusEl!: HTMLElement;
 
   constructor(
     container: HTMLElement,
@@ -82,6 +83,14 @@ export class Toolbar {
 
     this.iconButton("undo-2", "Undo (Cmd/Ctrl+Z)", () => this.callbacks.onUndo());
     this.iconButton("trash-2", "Clear", () => this.callbacks.onClear());
+
+    // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
+    this.statusEl = this.root.createEl("span", { cls: "inkedmark-status" });
+  }
+
+  /** Set the right-aligned status text (build id, stroke count, …). */
+  setStatus(text: string): void {
+    this.statusEl.setText(text);
   }
 
   private addToolButton(tool: Tool, icon: string, label: string): void {

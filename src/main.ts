@@ -1,6 +1,7 @@
 import {
   MarkdownView,
   Notice,
+  Platform,
   Plugin,
   type TFile,
   type WorkspaceLeaf,
@@ -60,6 +61,12 @@ export default class InkedMarkPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "toggle-input-debug-overlay",
+      name: "Toggle input debug overlay",
+      callback: () => void this.toggleDebugHud(),
+    });
+
     // Swap the markdown view for the ink view whenever an ink file is shown.
     this.registerEvent(this.app.workspace.on("layout-change", () => this.switchInkLeaves()));
     this.app.workspace.onLayoutReady(() => this.switchInkLeaves());
@@ -77,6 +84,34 @@ export default class InkedMarkPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * One-time iPad notice: iPadOS Scribble intercepts fast Pencil strokes before
+   * the web view sees them. We can't disable it from a plugin (it's a native
+   * system feature), so we point the user at the setting. Shown once, on first
+   * ink-note open on an iPad.
+   */
+  async maybeShowScribbleNotice(): Promise<void> {
+    if (!Platform.isIosApp || !Platform.isTablet) return;
+    if (this.settings.scribbleNoticeShown) return;
+    this.settings.scribbleNoticeShown = true;
+    await this.saveSettings();
+    new Notice(
+      "InkedMark tip: if handwriting drops strokes on iPad, turn off " +
+        "Settings → Apple Pencil → Scribble. iPadOS intercepts fast Pencil " +
+        "strokes before InkedMark can see them.",
+      0,
+    );
+  }
+
+  private async toggleDebugHud(): Promise<void> {
+    this.settings.debugHud = !this.settings.debugHud;
+    await this.saveSettings();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INK)) {
+      if (leaf.view instanceof InkView) leaf.view.setDebug(this.settings.debugHud);
+    }
+    new Notice(`InkedMark input debug overlay ${this.settings.debugHud ? "on" : "off"}`);
   }
 
   // --- Ink-file detection & view switching ----------------------------------

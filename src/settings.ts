@@ -1,4 +1,4 @@
-import { type App, PluginSettingTab, Setting } from "obsidian";
+import { type App, Platform, PluginSettingTab, Setting } from "obsidian";
 import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_WIDTH, PALETTE, SIZES } from "./constants";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import type InkedMarkPlugin from "./main";
@@ -16,6 +16,10 @@ export interface InkedMarkSettings {
   recognitionProviderId: string;
   twoFileStorage: boolean;
   desynchronizedCanvas: boolean;
+  /** On-screen raw pointer-event overlay for input diagnostics. */
+  debugHud: boolean;
+  /** Whether the one-time iPad "disable Scribble" notice has been shown. */
+  scribbleNoticeShown: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkedMarkSettings = {
@@ -29,6 +33,8 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   recognitionProviderId: MANUAL_PROVIDER_ID,
   twoFileStorage: false,
   desynchronizedCanvas: true,
+  debugHud: false,
+  scribbleNoticeShown: false,
 };
 
 export class InkedMarkSettingTab extends PluginSettingTab {
@@ -42,6 +48,20 @@ export class InkedMarkSettingTab extends PluginSettingTab {
   override display(): void {
     const { containerEl } = this;
     containerEl.empty();
+
+    if (Platform.isIosApp && Platform.isTablet) {
+      const callout = containerEl.createDiv({ cls: "inkedmark-callout" });
+      callout.createEl("div", {
+        cls: "inkedmark-callout-title",
+        text: "iPad: turn off Scribble for reliable handwriting",
+      });
+      callout.createEl("div", {
+        text:
+          "iPadOS “Scribble” intercepts fast Apple Pencil strokes before InkedMark " +
+          "receives them, causing missing strokes. Disable it in the iPad Settings app: " +
+          "Apple Pencil → Scribble (off).",
+      });
+    }
 
     new Setting(containerEl)
       .setName("Pressure sensitivity")

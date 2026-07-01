@@ -3,6 +3,15 @@
 /** Plugin id — must match manifest.json. */
 export const PLUGIN_ID = "inkedmark";
 
+/**
+ * Build stamp injected by esbuild's `define` (see esbuild.config.mjs). Falls
+ * back to "dev" when unbundled (e.g. under Vitest). Surfaced in the toolbar so
+ * a tester can confirm which build is running.
+ */
+declare const __INKEDMARK_BUILD__: string;
+export const BUILD_ID: string =
+  typeof __INKEDMARK_BUILD__ !== "undefined" ? __INKEDMARK_BUILD__ : "dev";
+
 /** Custom view type registered for `*.ink.md` files. */
 export const VIEW_TYPE_INK = "inkedmark-view";
 

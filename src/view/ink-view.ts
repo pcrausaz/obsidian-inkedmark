@@ -19,6 +19,7 @@
 
 import { TextFileView, type WorkspaceLeaf } from "obsidian";
 import {
+  BUILD_ID,
   DEFAULT_PAPER_HEIGHT,
   FALLBACK_PRESSURE,
   MIN_SAMPLE_DISTANCE,
@@ -42,6 +43,7 @@ import { buildInkFile, parseInkFile } from "../model/serialize";
 import {
   PointerController,
   type PointerControllerCallbacks,
+  type PointerDebugRecord,
   type PointerSample,
 } from "../input/pointer-controller";
 import { ICON_INK_PEN } from "../icons";
@@ -77,12 +79,35 @@ export class InkView extends TextFileView {
 
   private toolbar: Toolbar | null = null;
   private toolState: ToolbarState;
+  private readonly buildLabel: string;
+
+  // Wet-render throttle: coalesce many pointermoves into one draw per frame.
+  private wetFrame = 0;
+  private pendingPredicted: PointerSample[] = [];
+
+  // Diagnostic HUD state (toggled via command / settings).
+  private debug: boolean;
+  private hudEl: HTMLElement | null = null;
+  private hudLog: Array<{ k: string; n: number }> = [];
+  private hudMoves = 0;
+  private hudPts = 0;
+  private hudMaxGap = 0;
+  private hudLastMoveT = 0;
+  private hudPressure = 0;
+  private hudMaxP = 0;
+  private hudPointerType = "";
+  private hudFrame = 0;
+  private hudSumDown = 0;
+  private hudSumUp = 0;
+  private hudSumCancel = 0;
 
   constructor(
     leaf: WorkspaceLeaf,
     private readonly plugin: InkedMarkPlugin,
   ) {
     super(leaf);
+    this.buildLabel = `v${plugin.manifest.version} · ${BUILD_ID}`;
+    this.debug = plugin.settings.debugHud;
     this.doc = emptyDocument(plugin.settings.paperWidth);
     this.toolState = {
       tool: "pen",
@@ -120,7 +145,10 @@ export class InkView extends TextFileView {
     this.bodyText = parsed.body;
     this.doc = parsed.doc ?? emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = strokeCount(this.doc);
-    if (this.built) this.layout();
+    if (this.built) {
+      this.layout();
+      this.updateStatus();
+    }
   }
 
   clear(): void {
@@ -136,10 +164,13 @@ export class InkView extends TextFileView {
     this.buildDom();
     this.built = true;
     this.layout();
+    void this.plugin.maybeShowScribbleNotice();
   }
 
   override async onClose(): Promise<void> {
     if (this.dryFrame) cancelAnimationFrame(this.dryFrame);
+    if (this.hudFrame) cancelAnimationFrame(this.hudFrame);
+    if (this.wetFrame) cancelAnimationFrame(this.wetFrame);
     this.pointer?.detach();
     this.resizeObserver?.disconnect();
     this.toolbar?.destroy();
@@ -202,6 +233,9 @@ export class InkView extends TextFileView {
     this.scrollEl = this.surfaceEl.createDiv({ cls: "inkedmark-scroll" });
     this.paperEl = this.scrollEl.createDiv({ cls: "inkedmark-paper" });
 
+    this.hudEl = this.surfaceEl.createDiv({ cls: "inkedmark-hud" });
+    this.hudEl.style.display = this.debug ? "" : "none";
+
     this.renderer = new Renderer(
       this.dryCanvas,
       this.wetCanvas,
@@ -220,6 +254,13 @@ export class InkView extends TextFileView {
 
     this.resizeObserver = new ResizeObserver(() => this.layout());
     this.resizeObserver.observe(this.surfaceEl);
+
+    this.updateStatus();
+  }
+
+  /** Toolbar readout: build id + live committed-stroke count (a testing aid). */
+  private updateStatus(): void {
+    this.toolbar?.setStatus(`${this.buildLabel} · ${strokeCount(this.doc)} strokes`);
   }
 
   // --- Layout / rendering ---------------------------------------------------
@@ -296,29 +337,132 @@ export class InkView extends TextFileView {
     },
     onMove: (coalesced, predicted) => {
       if (!this.builder) return;
+      // Retain every coalesced sample immediately (cheap), but defer the
+      // expensive outline draw to one rAF per frame — drawing more often than
+      // the display refreshes is wasted work that starves incoming events.
       for (const sample of coalesced) this.builder.add(sample);
+      this.pendingPredicted = predicted;
+      this.scheduleWet();
+    },
+    onEnd: (sample) => {
+      this.finishStroke(sample);
+    },
+    onCancel: () => {
+      // Salvage rather than discard: iOS can fire pointercancel on a normal pen
+      // lift (e.g. when the surface briefly interprets the drag as a scroll), so
+      // dropping the stroke here would make just-drawn ink vanish.
+      this.finishStroke(null);
+    },
+    onPan: (deltaY) => {
+      // Native touch-scroll is disabled (touch-action: none); drive it manually.
+      // Setting scrollTop fires a scroll event -> onScroll() -> dry redraw.
+      this.scrollEl.scrollTop += deltaY;
+    },
+    onDebug: (record) => this.onDebug(record),
+  };
+
+  // --- Diagnostic HUD -------------------------------------------------------
+
+  /** Enable/disable the on-screen pointer-event overlay (also resets counters). */
+  setDebug(enabled: boolean): void {
+    this.debug = enabled;
+    if (enabled) {
+      this.hudLog = [];
+      this.hudSumDown = 0;
+      this.hudSumUp = 0;
+      this.hudSumCancel = 0;
+    }
+    if (this.hudEl) this.hudEl.style.display = enabled ? "" : "none";
+    if (enabled) this.renderHud();
+  }
+
+  private onDebug(record: PointerDebugRecord): void {
+    if (!this.debug) return;
+    this.hudPointerType = record.pointerType;
+    this.hudPressure = record.pressure;
+
+    switch (record.type) {
+      case "down":
+        this.hudSumDown += 1;
+        this.hudMoves = 0;
+        this.hudPts = 0;
+        this.hudMaxGap = 0;
+        this.hudMaxP = 0;
+        this.hudLastMoveT = record.timeStamp;
+        this.pushHud("dn");
+        break;
+      case "move": {
+        this.hudMoves += 1;
+        this.hudPts += record.coalesced;
+        if (record.pressure > this.hudMaxP) this.hudMaxP = record.pressure;
+        const gap = record.timeStamp - this.hudLastMoveT;
+        if (gap > this.hudMaxGap) this.hudMaxGap = gap;
+        this.hudLastMoveT = record.timeStamp;
+        const last = this.hudLog[this.hudLog.length - 1];
+        if (last && last.k === "m") last.n += 1;
+        else this.pushHud("m");
+        break;
+      }
+      case "up":
+        this.hudSumUp += 1;
+        this.pushHud("up");
+        break;
+      case "cancel":
+        this.hudSumCancel += 1;
+        this.pushHud("cx");
+        break;
+    }
+    this.scheduleHud();
+  }
+
+  private pushHud(k: string): void {
+    this.hudLog.push({ k, n: 1 });
+    if (this.hudLog.length > 30) this.hudLog.shift();
+  }
+
+  private scheduleHud(): void {
+    if (this.hudFrame) return;
+    this.hudFrame = requestAnimationFrame(() => {
+      this.hudFrame = 0;
+      this.renderHud();
+    });
+  }
+
+  private renderHud(): void {
+    if (!this.hudEl || !this.debug) return;
+    const seq = this.hudLog.map((t) => (t.k === "m" ? `m·${t.n}` : t.k)).join(" ");
+    this.hudEl.setText(
+      `${seq}\n` +
+        `cur mv=${this.hudMoves} pts=${this.hudPts} gap=${Math.round(this.hudMaxGap)}ms maxP=${this.hudMaxP.toFixed(2)}\n` +
+        `Σ dn=${this.hudSumDown} up=${this.hudSumUp} cx=${this.hudSumCancel} commit=${strokeCount(this.doc)}\n` +
+        `${this.hudPointerType || "-"} p=${this.hudPressure.toFixed(2)}`,
+    );
+  }
+
+  private scheduleWet(): void {
+    if (this.wetFrame || !this.builder) return;
+    this.wetFrame = requestAnimationFrame(() => {
+      this.wetFrame = 0;
+      if (!this.builder) return;
       const pts = this.builder.points();
-      for (const sample of predicted) {
+      for (const sample of this.pendingPredicted) {
         pts.push(sample.x, sample.y, mapPressure(sample.pressure, this.builderOpts));
       }
       this.renderer?.renderWet(pts, this.currentStyle());
-    },
-    onEnd: (sample) => {
-      this.commitStroke(sample);
-    },
-    onCancel: () => {
-      this.builder = null;
-      this.renderer?.clearWet();
-    },
-  };
+    });
+  }
 
-  private commitStroke(final: PointerSample): void {
+  private finishStroke(final: PointerSample | null): void {
+    if (this.wetFrame) {
+      cancelAnimationFrame(this.wetFrame);
+      this.wetFrame = 0;
+    }
     const builder = this.builder;
     this.builder = null;
     this.renderer?.clearWet();
     if (!builder) return;
 
-    builder.addFinal(final);
+    if (final) builder.addFinal(final);
     // A single retained point is a valid dot; only drop truly empty strokes.
     if (builder.length < 1) return;
 
@@ -332,7 +476,10 @@ export class InkView extends TextFileView {
     primaryRegion(this.doc).strokes.push(stroke);
 
     this.ensurePaperHeight(this.surfaceEl.clientHeight);
-    this.renderDry();
+    // O(1) incremental paint: draw only this stroke, don't re-outline the whole
+    // document (that main-thread cost was dropping fast follow-up strokes).
+    this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
+    this.updateStatus();
     this.requestSave();
   }
 
@@ -341,6 +488,7 @@ export class InkView extends TextFileView {
     if (region.strokes.length === 0) return;
     region.strokes.pop();
     this.renderDry();
+    this.updateStatus();
     this.requestSave();
   }
 
@@ -349,6 +497,7 @@ export class InkView extends TextFileView {
     if (region.strokes.length === 0) return;
     region.strokes = [];
     this.renderDry();
+    this.updateStatus();
     this.requestSave();
   }
 

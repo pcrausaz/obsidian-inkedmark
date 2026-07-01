@@ -29,6 +29,18 @@ full technical brief, data formats, and roadmap.
 > iPad in the Obsidian webview (see §10 of the spec). The whole premise rests on
 > this being good enough.
 
+## iPad / Apple Pencil setup — important
+
+**Turn off iPadOS Scribble:** _Settings → Apple Pencil → Scribble (off)._
+
+iPadOS "Scribble" (the system handwriting‑to‑text feature) intercepts fast
+Apple Pencil strokes at the OS level, _before_ they reach Obsidian's web view —
+so with it on, quick handwriting drops strokes. This is a WebKit/iPadOS
+behavior, not an InkedMark bug: a plugin runs as JavaScript inside Obsidian's
+web view and has no way to disable a native system feature. With Scribble off,
+capture is smooth (verified on an iPad Pro 12.9″ 4th‑gen, Apple Pencil 2).
+InkedMark shows a one‑time reminder and a settings‑tab note on iPad.
+
 ## Development
 
 ```bash

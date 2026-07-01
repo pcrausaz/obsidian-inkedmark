@@ -40,6 +40,50 @@
   margin: 0 2px;
 }
 
+/* Settings-tab callout (iPad Scribble guidance). */
+.inkedmark-callout {
+  margin: 0 0 1em;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border-left: 4px solid var(--interactive-accent);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.inkedmark-callout-title {
+  margin-bottom: 4px;
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+/* Diagnostic input overlay (toggled via command / settings). */
+.inkedmark-hud {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  pointer-events: none;
+  white-space: pre;
+  font-family: var(--font-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.35;
+  color: #66ccff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 8px;
+  border-radius: 6px;
+  max-width: 70%;
+}
+
+.inkedmark-status {
+  margin-left: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  font-family: var(--font-monospace, monospace);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .inkedmark-swatch {
   width: 20px;
   height: 20px;
@@ -89,14 +133,16 @@
   z-index: 2;
 }
 
-/* Transparent overlay that scrolls and receives pen/touch input. */
+/* Transparent overlay that scrolls and receives pen/touch input. touch-action
+   is none so iOS WebKit never hijacks a pen drag as a scroll (which cuts
+   strokes short); single-finger panning is driven manually in JS instead. */
 .inkedmark-scroll {
   position: absolute;
   inset: 0;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 3;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .inkedmark-paper {

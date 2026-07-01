@@ -566,6 +566,10 @@ obsidian-inkedmark/
 - **0.5 — Polish & release.** Settings tab; mobile/iPad QA pass; `release.yml`;
   website + `pages.yml`; README with GIFs; community-plugin submission; BRAT
   beta.
+  - _Future task:_ **pen-capture self-test** — a command that asks the user to
+    draw N strokes, measures the pointer-event delivery ratio (reusing the 0.1
+    debug-HUD infra), and, if capture is low, nudges them to disable iPadOS
+    Scribble. Doubles as the repeatable capture/latency check.
 
 ---
 
@@ -602,6 +606,18 @@ Suggested kickoff for the new session:
   (accurate, networked). Decide after v1 ships, informed by user demand.
 - **Live-preview rendering of inline blocks** (Cm6 editor extension) is more work
   than the reading-mode post-processor — intentionally phased to 0.4.
-- **Latency Go/No-Go.** If 0.1 latency on iPad is unacceptable, the web/Obsidian
-  premise is in question; reassess rather than push forward.
+- **Latency Go/No-Go.** _Resolved: GO (0.1)._ On an iPad Pro 12.9″ 4th‑gen
+  (A12Z, Apple Pencil 2) in the Obsidian web view, wet‑ink latency and capture
+  are smooth once the wet layer draws synchronously (desynchronized ctx),
+  committed strokes render on a synchronized dry layer, and wet rendering is
+  throttled to one draw per animation frame. The web/Obsidian premise holds on
+  hardware from 2020, so newer devices are expected to be at least as good.
+- **iPadOS Scribble intercepts fast Pencil strokes.** _Resolved / documented._
+  With Scribble on, ~20% of fast pen‑downs never reach the web view (confirmed
+  via the debug HUD: delivered `dn` < strokes drawn, `cx=0`, `commit==dn`). A
+  plugin cannot disable Scribble (native system feature; no web API, and
+  `touch-action:none` is a different layer) nor reliably detect it (dropped
+  strokes produce **no** events). Mitigation: flag it — README/install note, an
+  iPad‑only one‑time notice, and a settings‑tab callout pointing to
+  _Settings → Apple Pencil → Scribble (off)_. Confirmed night‑and‑day fix.
 ```

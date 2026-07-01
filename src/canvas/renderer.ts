@@ -135,6 +135,18 @@ export class Renderer {
     }
   }
 
+  /**
+   * Draw a single newly-committed stroke onto the dry layer WITHOUT clearing it.
+   * This keeps commit O(1) instead of re-outlining every stroke on each pen-up —
+   * the O(n) full repaint was starving the main thread (and dropping incoming
+   * pointer events) as a note filled up. Full repaints happen only on
+   * scroll/resize/undo via {@link renderDocument}.
+   */
+  appendCommittedStroke(stroke: Stroke, usePressure: boolean): void {
+    this.applyTransform(this.dryCtx);
+    this.fillStroke(this.dryCtx, stroke.pts, styleOf(stroke, usePressure), true);
+  }
+
   /** Draw the in-progress stroke on the wet layer (synchronous, low-latency). */
   renderWet(pts: number[], style: StrokeStyle): void {
     this.clear(this.wetCtx);
