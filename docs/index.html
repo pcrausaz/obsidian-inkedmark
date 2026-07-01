@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>InkedMark — handwriting that lives in your Obsidian notes</title>
+    <meta
+      name="description"
+      content="Pressure-aware handwriting as a first-class block inside ordinary Obsidian markdown notes — searchable and graph-indexed like everything else in your vault."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <h1>InkedMark</h1>
+      <p class="tagline">
+        Handwriting that lives inside your Obsidian notes — pressure-aware ink, fused with markdown,
+        searchable and graphable like everything else in your vault.
+      </p>
+      <div class="cta">
+        <a class="button" href="https://github.com/pcrausaz/obsidian-inkedmark">View on GitHub</a>
+        <a class="button button-ghost" href="#install">Install</a>
+      </div>
+      <div class="hero-demo" aria-hidden="true">
+        <!-- Drop a demo GIF at assets/demo.gif -->
+        <img src="./assets/demo.gif" alt="" onerror="this.style.display = 'none'" />
+      </div>
+    </header>
+
+    <main>
+      <section class="features">
+        <article>
+          <h2>Write by hand, in markdown</h2>
+          <p>
+            Handwriting is a first-class block inside ordinary <code>.md</code> notes — a dedicated
+            <code>*.ink.md</code> canvas or an inline block. Type where typing is better, write
+            where writing is better, in the same note.
+          </p>
+        </article>
+        <article>
+          <h2>Searchable &amp; graphable</h2>
+          <p>
+            Every ink note carries a text layer that is real markdown — transcription,
+            <code>[[links]]</code>, <code>#tags</code>. Obsidian's search, graph, backlinks, and
+            Quick Switcher index your handwriting with no custom engine.
+          </p>
+        </article>
+        <article>
+          <h2>Built for Apple Pencil</h2>
+          <p>
+            GoodNotes-class ink feel within the webview: pressure-variable strokes via
+            perfect-freehand, full-rate capture with coalesced events, a wet/dry canvas split, and
+            low-latency rendering. Local-first, single-file, sync-friendly.
+          </p>
+        </article>
+      </section>
+
+      <section id="install" class="install">
+        <h2>Install</h2>
+        <ul>
+          <li><strong>Community Plugins:</strong> search for “InkedMark” (once accepted).</li>
+          <li>
+            <strong>BRAT (beta):</strong> add <code>pcrausaz/obsidian-inkedmark</code> in the BRAT
+            plugin.
+          </li>
+          <li>
+            <strong>Manual:</strong> copy <code>main.js</code>, <code>manifest.json</code>, and
+            <code>styles.css</code> from a release into
+            <code>&lt;vault&gt;/.obsidian/plugins/inkedmark/</code>.
+          </li>
+        </ul>
+        <p class="ipad-note">
+          <strong>iPad:</strong> turn off <em>Settings → Apple Pencil → Scribble</em> so fast
+          strokes aren't intercepted by iPadOS before InkedMark sees them.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        MIT © 2026 Pascal Crausaz ·
+        <a href="https://github.com/pcrausaz/obsidian-inkedmark"
+          >github.com/pcrausaz/obsidian-inkedmark</a
+        >
+      </p>
+    </footer>
+  </body>
+</html>
