@@ -39,6 +39,8 @@ import {
   primaryRegion,
   strokeCount,
 } from "../model/document";
+import { AddStroke, ClearRegion } from "../model/commands";
+import { History } from "../model/history";
 import { buildInkFile, parseInkFile } from "../model/serialize";
 import {
   PointerController,
@@ -76,6 +78,7 @@ export class InkView extends TextFileView {
   private builder: StrokeBuilder | null = null;
   private builderOpts: StrokeBuilderOptions;
   private strokeSeq = 0;
+  private readonly history = new History();
 
   private toolbar: Toolbar | null = null;
   private toolState: ToolbarState;
@@ -145,6 +148,7 @@ export class InkView extends TextFileView {
     this.bodyText = parsed.body;
     this.doc = parsed.doc ?? emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = strokeCount(this.doc);
+    this.history.clear();
     if (this.built) {
       this.layout();
       this.updateStatus();
@@ -155,6 +159,7 @@ export class InkView extends TextFileView {
     this.bodyText = "";
     this.doc = emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = 0;
+    this.history.clear();
     if (this.built) this.renderDry();
   }
 
@@ -218,7 +223,8 @@ export class InkView extends TextFileView {
         this.toolState.pressureEnabled = enabled;
         this.builderOpts = { ...this.builderOpts, pressureEnabled: enabled };
       },
-      onUndo: () => this.undoLastStroke(),
+      onUndo: () => this.undo(),
+      onRedo: () => this.redo(),
       onClear: () => this.clearStrokes(),
     });
 
@@ -473,20 +479,25 @@ export class InkView extends TextFileView {
       tool: this.toolState.tool,
       pts: builder.points(),
     };
-    primaryRegion(this.doc).strokes.push(stroke);
+    // Record via the command stack (applies the add), then paint just this
+    // stroke incrementally rather than re-outlining the whole document.
+    this.history.push(this.doc, new AddStroke(stroke));
 
     this.ensurePaperHeight(this.surfaceEl.clientHeight);
-    // O(1) incremental paint: draw only this stroke, don't re-outline the whole
-    // document (that main-thread cost was dropping fast follow-up strokes).
     this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
     this.updateStatus();
     this.requestSave();
   }
 
-  private undoLastStroke(): void {
-    const region = primaryRegion(this.doc);
-    if (region.strokes.length === 0) return;
-    region.strokes.pop();
+  private undo(): void {
+    if (!this.history.undo(this.doc)) return;
+    this.renderDry();
+    this.updateStatus();
+    this.requestSave();
+  }
+
+  private redo(): void {
+    if (!this.history.redo(this.doc)) return;
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -495,7 +506,7 @@ export class InkView extends TextFileView {
   private clearStrokes(): void {
     const region = primaryRegion(this.doc);
     if (region.strokes.length === 0) return;
-    region.strokes = [];
+    this.history.push(this.doc, new ClearRegion());
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -508,9 +519,10 @@ export class InkView extends TextFileView {
     }
 
     const mod = event.metaKey || event.ctrlKey;
-    if (mod && event.key.toLowerCase() === "z" && !event.shiftKey) {
+    if (mod && event.key.toLowerCase() === "z") {
       event.preventDefault();
-      this.undoLastStroke();
+      if (event.shiftKey) this.redo();
+      else this.undo();
       return;
     }
 

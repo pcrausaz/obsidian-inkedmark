@@ -22,6 +22,7 @@ export interface ToolbarCallbacks {
   onSizeChange(size: number): void;
   onPressureToggle(enabled: boolean): void;
   onUndo(): void;
+  onRedo(): void;
   onClear(): void;
 }
 
@@ -82,6 +83,7 @@ export class Toolbar {
     });
 
     this.iconButton("undo-2", "Undo (Cmd/Ctrl+Z)", () => this.callbacks.onUndo());
+    this.iconButton("redo-2", "Redo (Cmd/Ctrl+Shift+Z)", () => this.callbacks.onRedo());
     this.iconButton("trash-2", "Clear", () => this.callbacks.onClear());
 
     // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
