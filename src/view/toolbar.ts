@@ -52,6 +52,7 @@ export class Toolbar {
     this.addToolButton("pen", "pencil", "Pen (P)");
     this.addToolButton("highlighter", "highlighter", "Highlighter (H)");
     this.addToolButton("eraser", "eraser", "Eraser (E)");
+    this.addToolButton("select", "box-select", "Select (V)");
     this.addSeparator();
 
     for (const color of this.palette) {

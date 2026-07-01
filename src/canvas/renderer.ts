@@ -13,7 +13,13 @@
 
 import { DEFAULT_HIGHLIGHTER_ALPHA } from "../constants";
 import { type FreehandOptions, outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
-import { type InkDocument, type Stroke, type Tool, strokeBounds } from "../model/document";
+import {
+  type Bounds,
+  type InkDocument,
+  type Stroke,
+  type Tool,
+  strokeBounds,
+} from "../model/document";
 import type { ViewportState } from "./viewport";
 
 export interface StrokeStyle {
@@ -122,7 +128,12 @@ export class Renderer {
    * Repaint the dry layer from committed strokes, culling off-screen ones.
    * `hidden` strokes are skipped (used for live erase preview).
    */
-  renderDocument(doc: InkDocument, usePressure: boolean, hidden?: ReadonlySet<string>): void {
+  renderDocument(
+    doc: InkDocument,
+    usePressure: boolean,
+    hidden?: ReadonlySet<string>,
+    selectionBounds?: Bounds | null,
+  ): void {
     this.clear(this.dryCtx);
     this.applyTransform(this.dryCtx);
 
@@ -137,6 +148,41 @@ export class Renderer {
         this.fillStroke(this.dryCtx, stroke.pts, styleOf(stroke, usePressure), true);
       }
     }
+
+    if (selectionBounds) this.strokeRect(this.dryCtx, selectionBounds, 8);
+  }
+
+  /** Draw a dashed selection/marquee rectangle in world coords. */
+  private strokeRect(ctx: CanvasRenderingContext2D, b: Bounds, pad: number): void {
+    const scale = this.viewport.scale || 1;
+    ctx.save();
+    ctx.lineWidth = 1.5 / scale;
+    ctx.setLineDash([6 / scale, 4 / scale]);
+    ctx.strokeStyle = "rgba(120,170,255,0.95)";
+    ctx.strokeRect(
+      b.minX - pad,
+      b.minY - pad,
+      b.maxX - b.minX + 2 * pad,
+      b.maxY - b.minY + 2 * pad,
+    );
+    ctx.restore();
+  }
+
+  /** Draw the in-progress marquee rectangle on the wet layer. */
+  renderMarquee(bounds: Bounds): void {
+    this.clear(this.wetCtx);
+    this.applyTransform(this.wetCtx);
+    this.wetCtx.save();
+    this.wetCtx.fillStyle = "rgba(120,170,255,0.12)";
+    this.wetCtx.fillRect(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX - bounds.minX,
+      bounds.maxY - bounds.minY,
+    );
+    this.wetCtx.restore();
+    this.strokeRect(this.wetCtx, bounds, 0);
+    this.wet.style.visibility = "visible";
   }
 
   /**

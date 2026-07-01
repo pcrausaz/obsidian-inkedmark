@@ -31,19 +31,26 @@ import {
 } from "../constants";
 import { Renderer, type StrokeStyle } from "../canvas/renderer";
 import type { ViewportState } from "../canvas/viewport";
-import { strokeHitByPoint } from "../canvas/hit-test";
+import {
+  pointInBounds,
+  rectFromCorners,
+  strokeHitByPoint,
+  strokeIntersectsRect,
+} from "../canvas/hit-test";
 import { SpatialIndex } from "../canvas/spatial-index";
 import { StrokeBuilder, type StrokeBuilderOptions, mapPressure } from "../ink/stroke-builder";
 import {
+  type Bounds,
   type InkDocument,
   type Stroke,
   type Tool,
   documentBounds,
   emptyDocument,
   primaryRegion,
+  strokeBounds,
   strokeCount,
 } from "../model/document";
-import { AddStroke, ClearRegion, RemoveStrokes } from "../model/commands";
+import { AddStroke, ClearRegion, MoveStrokes, RemoveStrokes } from "../model/commands";
 import { History } from "../model/history";
 import { buildInkFile, parseInkFile } from "../model/serialize";
 import {
@@ -57,6 +64,10 @@ import { Toolbar, type ToolbarState } from "./toolbar";
 import type InkedMarkPlugin from "../main";
 
 const MAX_DPR = 3;
+
+function padBounds(b: Bounds, pad: number): Bounds {
+  return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
+}
 
 export class InkView extends TextFileView {
   private doc: InkDocument;
@@ -85,6 +96,15 @@ export class InkView extends TextFileView {
   private readonly history = new History();
   private readonly index = new SpatialIndex();
   private eraseIds = new Set<string>();
+
+  // Selection / move state (select tool).
+  private selection = new Set<string>();
+  private selectMode: "none" | "marquee" | "move" = "none";
+  private marquee: Bounds | null = null;
+  private marqueeOrigin: { x: number; y: number } | null = null;
+  private moveLast: { x: number; y: number } | null = null;
+  private moveDx = 0;
+  private moveDy = 0;
 
   private toolbar: Toolbar | null = null;
   private toolState: ToolbarState;
@@ -224,6 +244,7 @@ export class InkView extends TextFileView {
     this.toolbar = new Toolbar(root, PALETTE, SIZES, this.toolState, {
       onToolChange: (tool) => {
         this.toolState.tool = tool;
+        if (tool !== "select") this.clearSelection();
       },
       onColorChange: (color) => {
         this.toolState.color = color;
@@ -328,7 +349,31 @@ export class InkView extends TextFileView {
 
   private renderDry(): void {
     // `eraseIds` is empty except during a live erase gesture (preview).
-    this.renderer?.renderDocument(this.doc, this.toolState.pressureEnabled, this.eraseIds);
+    this.renderer?.renderDocument(
+      this.doc,
+      this.toolState.pressureEnabled,
+      this.eraseIds,
+      this.selectionBounds(),
+    );
+  }
+
+  private selectionBounds(): Bounds | null {
+    if (this.selection.size === 0) return null;
+    let acc: Bounds | null = null;
+    for (const stroke of primaryRegion(this.doc).strokes) {
+      if (!this.selection.has(stroke.id)) continue;
+      const b = strokeBounds(stroke);
+      if (!b) continue;
+      acc = acc
+        ? {
+            minX: Math.min(acc.minX, b.minX),
+            minY: Math.min(acc.minY, b.minY),
+            maxX: Math.max(acc.maxX, b.maxX),
+            maxY: Math.max(acc.maxY, b.maxY),
+          }
+        : b;
+    }
+    return acc;
   }
 
   /** The drawing tool for a produced stroke (eraser/select never produce one). */
@@ -360,6 +405,10 @@ export class InkView extends TextFileView {
         this.eraseAt(sample);
         return;
       }
+      if (this.toolState.tool === "select") {
+        this.selectStart(sample);
+        return;
+      }
       this.builder = new StrokeBuilder(this.builderOpts);
       this.builder.add(sample);
       this.renderer?.clearWet();
@@ -367,6 +416,10 @@ export class InkView extends TextFileView {
     onMove: (coalesced, predicted) => {
       if (this.toolState.tool === "eraser") {
         for (const sample of coalesced) this.eraseAt(sample);
+        return;
+      }
+      if (this.toolState.tool === "select") {
+        this.selectMove(coalesced[coalesced.length - 1]);
         return;
       }
       if (!this.builder) return;
@@ -382,12 +435,20 @@ export class InkView extends TextFileView {
         this.eraseCommit();
         return;
       }
+      if (this.toolState.tool === "select") {
+        this.selectEnd();
+        return;
+      }
       this.finishStroke(sample);
     },
     onCancel: () => {
       if (this.toolState.tool === "eraser") {
         this.eraseIds = new Set();
         this.renderDry();
+        return;
+      }
+      if (this.toolState.tool === "select") {
+        this.selectCancel();
         return;
       }
       // Salvage rather than discard: iOS can fire pointercancel on a normal pen
@@ -556,6 +617,123 @@ export class InkView extends TextFileView {
     this.requestSave();
   }
 
+  // --- Selection / move -----------------------------------------------------
+
+  private selectStart(sample: { x: number; y: number }): void {
+    const bounds = this.selectionBounds();
+    // Grab-to-move only when pressing inside the current selection box (padded).
+    if (bounds && pointInBounds(sample.x, sample.y, padBounds(bounds, 8))) {
+      this.selectMode = "move";
+      this.moveLast = { x: sample.x, y: sample.y };
+      this.moveDx = 0;
+      this.moveDy = 0;
+      return;
+    }
+    this.selectMode = "marquee";
+    this.selection = new Set();
+    this.marqueeOrigin = { x: sample.x, y: sample.y };
+    this.marquee = rectFromCorners(sample.x, sample.y, sample.x, sample.y);
+    this.renderDry();
+    this.renderer?.renderMarquee(this.marquee);
+  }
+
+  private selectMove(sample: { x: number; y: number } | undefined): void {
+    if (!sample) return;
+    if (this.selectMode === "marquee" && this.marqueeOrigin) {
+      this.marquee = rectFromCorners(
+        this.marqueeOrigin.x,
+        this.marqueeOrigin.y,
+        sample.x,
+        sample.y,
+      );
+      this.renderer?.renderMarquee(this.marquee);
+      return;
+    }
+    if (this.selectMode === "move" && this.moveLast) {
+      const dx = sample.x - this.moveLast.x;
+      const dy = sample.y - this.moveLast.y;
+      this.translateSelection(dx, dy);
+      this.moveDx += dx;
+      this.moveDy += dy;
+      this.moveLast = { x: sample.x, y: sample.y };
+      this.renderDry();
+    }
+  }
+
+  private selectEnd(): void {
+    if (this.selectMode === "marquee" && this.marquee) {
+      this.applyMarqueeSelection(this.marquee);
+      this.marquee = null;
+      this.marqueeOrigin = null;
+      this.selectMode = "none";
+      this.renderer?.clearWet();
+      this.renderDry();
+      return;
+    }
+    if (this.selectMode === "move") {
+      const dx = this.moveDx;
+      const dy = this.moveDy;
+      this.selectMode = "none";
+      this.moveLast = null;
+      if (dx !== 0 || dy !== 0) {
+        // Undo the live translation, then record it as a command (which re-applies
+        // it) so the move sits correctly on the undo stack.
+        this.translateSelection(-dx, -dy);
+        this.history.push(this.doc, new MoveStrokes(this.selection, dx, dy));
+        this.rebuildIndex();
+        this.renderDry();
+        this.requestSave();
+      }
+    }
+  }
+
+  private selectCancel(): void {
+    if (this.selectMode === "move") this.translateSelection(-this.moveDx, -this.moveDy);
+    this.selectMode = "none";
+    this.marquee = null;
+    this.marqueeOrigin = null;
+    this.moveLast = null;
+    this.renderer?.clearWet();
+    this.renderDry();
+  }
+
+  private applyMarqueeSelection(rect: Bounds): void {
+    this.selection = new Set();
+    const region = primaryRegion(this.doc);
+    for (const id of this.index.queryBounds(rect)) {
+      const stroke = region.strokes.find((s) => s.id === id);
+      if (stroke && strokeIntersectsRect(stroke, rect)) this.selection.add(id);
+    }
+  }
+
+  private translateSelection(dx: number, dy: number): void {
+    if (dx === 0 && dy === 0) return;
+    for (const stroke of primaryRegion(this.doc).strokes) {
+      if (!this.selection.has(stroke.id)) continue;
+      for (let i = 0; i < stroke.pts.length; i += 3) {
+        stroke.pts[i] += dx;
+        stroke.pts[i + 1] += dy;
+      }
+    }
+  }
+
+  private deleteSelection(): void {
+    if (this.selection.size === 0) return;
+    const ids = this.selection;
+    this.selection = new Set();
+    this.history.push(this.doc, new RemoveStrokes(ids, "Delete selection"));
+    for (const id of ids) this.index.remove(id);
+    this.renderDry();
+    this.updateStatus();
+    this.requestSave();
+  }
+
+  private clearSelection(): void {
+    if (this.selection.size === 0) return;
+    this.selection = new Set();
+    this.renderDry();
+  }
+
   private undo(): void {
     if (!this.history.undo(this.doc)) return;
     this.rebuildIndex();
@@ -596,6 +774,12 @@ export class InkView extends TextFileView {
       return;
     }
 
+    if ((event.key === "Delete" || event.key === "Backspace") && this.selection.size > 0) {
+      event.preventDefault();
+      this.deleteSelection();
+      return;
+    }
+
     switch (event.key.toLowerCase()) {
       case "p":
         this.setTool("pen");
@@ -606,6 +790,9 @@ export class InkView extends TextFileView {
       case "e":
         this.setTool("eraser");
         break;
+      case "v":
+        this.setTool("select");
+        break;
       default:
         break;
     }
@@ -614,5 +801,6 @@ export class InkView extends TextFileView {
   private setTool(tool: ToolbarState["tool"]): void {
     this.toolState.tool = tool;
     this.toolbar?.setState(this.toolState);
+    if (tool !== "select") this.clearSelection();
   }
 }
