@@ -65,7 +65,15 @@ Two providers (Settings → Handwriting recognition):
   marked section of the text layer for you to review and edit. Supports
   Anthropic (Claude), OpenAI (GPT), and Google (Gemini); you pick the vendor
   and model and paste **your own API key**. Typical cost is a fraction of a
-  cent per page.
+  cent per page. The **OpenRouter** vendor lets you try any vision model on
+  the market (e.g. `google/gemini-2.5-flash`, `anthropic/claude-haiku-4.5`)
+  with a single key.
+
+- **On-device (experimental)** — an offline TrOCR model transcribes the ink
+  line-by-line, entirely on your machine. Enable it under _On-device
+  recognition (experimental)_ in settings. First run downloads a ~40 MB model
+  from Hugging Face (cached afterwards); English handwriting only, noticeably
+  less accurate than Cloud AI, desktop recommended.
 
 Run it from the toolbar's **scan button**, the command palette, or turn on
 **Recognize automatically** in settings to have it run in the background
@@ -75,12 +83,15 @@ section too (your own prose in the text layer is never touched).
 
 #### Network use disclosure
 
-InkedMark makes network requests **only** when you run _Recognize handwriting_
-with the Cloud AI provider selected: a rendered PNG of the current note's ink
-is sent to your chosen vendor using your API key, after a one-time
-confirmation. Nothing else is ever transmitted — no telemetry, no analytics,
-and the manual provider works fully offline. Your API key is stored locally in
-the vault's plugin data (`data.json`).
+InkedMark makes network requests **only** for recognition, and only in two
+cases: (1) _Cloud AI_ sends a rendered PNG of the current note's ink to your
+chosen vendor (Anthropic, OpenAI, Google, or OpenRouter) using your API key,
+after a one-time confirmation; (2) the experimental _on-device_ provider
+downloads its model from the Hugging Face CDN (and the ONNX runtime from
+jsDelivr) on first use — **your ink never leaves the device** with that
+provider. Nothing else is ever transmitted — no telemetry, no analytics, and
+the manual provider works fully offline. Your API key is stored locally in the
+vault's plugin data (`data.json`).
 
 ### The text layer (search & graph)
 

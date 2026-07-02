@@ -8,6 +8,7 @@ import {
   VENDOR_LABELS,
 } from "./recognition/llm-request";
 import { providerLabel } from "./recognition/registry";
+import { TROCR_PROVIDER_ID } from "./recognition/trocr";
 import type InkedMarkPlugin from "./main";
 
 export type ToolId = "pen" | "highlighter" | "eraser" | "select";
@@ -36,6 +37,8 @@ export interface InkedMarkSettings {
   cloudConsentGiven: boolean;
   /** Run cloud recognition automatically after the ink has been idle. */
   autoRecognize: boolean;
+  /** Expose the experimental on-device (TrOCR) recognizer. */
+  experimentalTrocr: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkedMarkSettings = {
@@ -56,6 +59,7 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   llmApiKey: "",
   cloudConsentGiven: false,
   autoRecognize: false,
+  experimentalTrocr: false,
 };
 
 export class InkedMarkSettingTab extends PluginSettingTab {
@@ -191,7 +195,10 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           "Cloud AI sends an image of the ink to a vision model using your own API key.",
       )
       .addDropdown((dropdown) => {
-        for (const id of this.plugin.providers.keys()) dropdown.addOption(id, providerLabel(id));
+        for (const id of this.plugin.providers.keys()) {
+          if (id === TROCR_PROVIDER_ID && !this.plugin.settings.experimentalTrocr) continue;
+          dropdown.addOption(id, providerLabel(id));
+        }
         dropdown.setValue(this.plugin.settings.recognitionProviderId).onChange(async (value) => {
           this.plugin.settings.recognitionProviderId = value;
           await this.plugin.saveSettings();
@@ -257,6 +264,25 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           }),
         );
     }
+
+    new Setting(containerEl)
+      .setName("On-device recognition (experimental)")
+      .setDesc(
+        "Adds an offline recognizer (TrOCR) to the provider list. Your ink never leaves " +
+          "the device, but the first run downloads a ~40 MB model from Hugging Face. " +
+          "English handwriting only, line-by-line, noticeably less accurate than Cloud AI; " +
+          "desktop recommended.",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.experimentalTrocr).onChange(async (value) => {
+          this.plugin.settings.experimentalTrocr = value;
+          if (!value && this.plugin.settings.recognitionProviderId === TROCR_PROVIDER_ID) {
+            this.plugin.settings.recognitionProviderId = MANUAL_PROVIDER_ID;
+          }
+          await this.plugin.saveSettings();
+          this.display();
+        }),
+      );
 
     new Setting(containerEl).setName("Support and diagnostics").setHeading();
 

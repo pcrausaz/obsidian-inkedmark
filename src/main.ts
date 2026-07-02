@@ -18,6 +18,7 @@ import { buildInlineBlock } from "./model/inline-block";
 import type { RecognitionProvider } from "./recognition/provider";
 import { createProviderRegistry, resolveProvider } from "./recognition/registry";
 import { LlmProvider } from "./recognition/llm";
+import { TrocrProvider } from "./recognition/trocr";
 import { VENDOR_LABELS } from "./recognition/llm-request";
 import { ConfirmModal } from "./ui/confirm-modal";
 import { InkView } from "./view/ink-view";
@@ -49,6 +50,9 @@ export default class InkedMarkPlugin extends Plugin {
       apiKey: this.settings.llmApiKey,
     }));
     this.providers.set(llm.id, llm);
+
+    const trocr = new TrocrProvider();
+    this.providers.set(trocr.id, trocr);
 
     this.registerView(VIEW_TYPE_INK, (leaf) => new InkView(leaf, this));
     this.installViewStatePatch();

@@ -592,9 +592,14 @@ obsidian-inkedmark/
   one-time off-device consent modal, transcription written into the managed
   text section); **freemium** monetization — free = manual + BYOK (+ on-device
   later), a hosted paid tier (Cloudflare Worker + license keys) only once BYOK
-  demand is proven; payments rail decided later. On-device TrOCR
-  (transformers.js, ~50 MB model download, English-only, desktop-first) follows
-  behind an experimental flag.
+  demand is proven; payments rail decided later. _Shipped since:_ OpenRouter as
+  a fourth BYOK vendor (OpenAI dialect — lets users A/B any vision model with
+  one key); recognition triggers (toolbar button, opt-in 30 s idle
+  auto-recognition) with stroke-content-hash change detection; on-device TrOCR
+  behind the "experimental" settings flag (`recognition/trocr.ts` +
+  pure `lines.ts` y-cluster line segmentation, transformers.js bundled,
+  WebGPU→WASM fallback, ~40 MB Xenova/trocr-small-handwritten downloaded on
+  first use; English, desktop-first).
 
 ---
 

@@ -20,6 +20,7 @@ export default defineConfig({
         "src/recognition/registry.ts",
         "src/recognition/manual.ts",
         "src/recognition/llm-request.ts",
+        "src/recognition/lines.ts",
       ],
       thresholds: {
         lines: 80,

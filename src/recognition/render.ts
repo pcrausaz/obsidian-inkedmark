@@ -14,6 +14,13 @@ const PAD = 16;
 /** Don't blow tiny sketches up more than this — it adds bytes, not signal. */
 const MAX_UPSCALE = 3;
 
+export interface RenderOptions {
+  /** Longest output edge in px (default 1568, the vision-model sweet spot). */
+  maxEdge?: number;
+  /** Whitespace border around the ink, in world px. */
+  pad?: number;
+}
+
 export interface RenderedInk {
   /** PNG, base64 without a data-URL prefix. */
   base64: string;
@@ -39,13 +46,18 @@ function unionBounds(strokes: readonly Stroke[]): Bounds | null {
 }
 
 /** Render strokes for recognition, or null when there is nothing to render. */
-export function renderStrokesForRecognition(strokes: readonly Stroke[]): RenderedInk | null {
+export function renderStrokesForRecognition(
+  strokes: readonly Stroke[],
+  options: RenderOptions = {},
+): RenderedInk | null {
+  const maxEdge = options.maxEdge ?? MAX_EDGE;
+  const pad = options.pad ?? PAD;
   const bounds = unionBounds(strokes);
   if (!bounds) return null;
 
-  const worldW = bounds.maxX - bounds.minX + PAD * 2;
-  const worldH = bounds.maxY - bounds.minY + PAD * 2;
-  const scale = Math.min(MAX_EDGE / Math.max(worldW, worldH), MAX_UPSCALE);
+  const worldW = bounds.maxX - bounds.minX + pad * 2;
+  const worldH = bounds.maxY - bounds.minY + pad * 2;
+  const scale = Math.min(maxEdge / Math.max(worldW, worldH), MAX_UPSCALE);
 
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(worldW * scale));
@@ -55,7 +67,7 @@ export function renderStrokesForRecognition(strokes: readonly Stroke[]): Rendere
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.setTransform(scale, 0, 0, scale, (-bounds.minX + PAD) * scale, (-bounds.minY + PAD) * scale);
+  ctx.setTransform(scale, 0, 0, scale, (-bounds.minX + pad) * scale, (-bounds.minY + pad) * scale);
 
   for (const stroke of strokes) {
     const outline = strokeOutline(stroke.pts, penOptions(stroke.size, true), true);

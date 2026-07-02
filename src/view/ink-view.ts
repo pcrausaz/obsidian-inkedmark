@@ -57,6 +57,7 @@ import { AddStroke, ClearRegion, MoveStrokes, RemoveStrokes } from "../model/com
 import { History } from "../model/history";
 import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize";
 import type { RecognitionProvider } from "../recognition/provider";
+import { MANUAL_PROVIDER_ID } from "../recognition/manual";
 import { readTextSection, writeTextSection } from "../recognition/text-layer";
 import {
   PointerController,
@@ -311,11 +312,15 @@ export class InkView extends TextFileView {
       return;
     }
 
-    const progress = provider.requiresNetwork
-      ? new Notice("InkedMark: recognizing handwriting…", 0)
-      : null;
+    const progress =
+      provider.id === MANUAL_PROVIDER_ID
+        ? null
+        : new Notice("InkedMark: recognizing handwriting…", 0);
     try {
-      const result = await provider.recognize({ strokes });
+      const result = await provider.recognize({
+        strokes,
+        onProgress: (message) => progress?.setMessage(`InkedMark: ${message}`),
+      });
       if (result.text.trim()) {
         this.bodyText = writeTextSection(this.bodyText, result.text);
         this.syncPanelFromBody();

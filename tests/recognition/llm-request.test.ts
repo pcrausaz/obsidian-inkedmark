@@ -42,6 +42,20 @@ describe("buildLlmRequest", () => {
     expect(body.messages[0].content[0].image_url?.url).toBe("data:image/png;base64,AAAA");
   });
 
+  it("builds an OpenRouter request on the OpenAI dialect with attribution headers", () => {
+    const req = buildLlmRequest({ ...base, vendor: "openrouter" });
+    expect(req.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(req.headers.authorization).toBe("Bearer sk-test");
+    expect(req.headers["x-title"]).toBe("InkedMark");
+    const body = req.body as {
+      messages: Array<{ content: Array<{ image_url?: { url: string } }> }>;
+    };
+    expect(body.messages[0].content[0].image_url?.url).toBe("data:image/png;base64,AAAA");
+    // Response extraction uses the OpenAI shape too.
+    const json = { choices: [{ message: { content: "via openrouter" } }] };
+    expect(extractLlmText("openrouter", json)).toBe("via openrouter");
+  });
+
   it("builds a Google generateContent request with the model in the URL", () => {
     const req = buildLlmRequest({ ...base, vendor: "google" });
     expect(req.url).toContain("generativelanguage.googleapis.com");
@@ -97,7 +111,7 @@ describe("prompt & cleanup", () => {
   });
 
   it("has a default model per vendor", () => {
-    for (const vendor of ["anthropic", "openai", "google"] as const) {
+    for (const vendor of ["anthropic", "openai", "google", "openrouter"] as const) {
       expect(defaultModelFor(vendor)).toBe(DEFAULT_MODELS[vendor]);
       expect(DEFAULT_MODELS[vendor].length).toBeGreaterThan(0);
     }

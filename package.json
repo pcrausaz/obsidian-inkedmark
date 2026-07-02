@@ -25,6 +25,7 @@
   "author": "Liqpil (https://liqpil.com)",
   "license": "MIT",
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "fflate": "^0.8.2",
     "perfect-freehand": "^1.2.2"
   },

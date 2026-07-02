@@ -12,6 +12,8 @@ export interface RecognitionRequest {
   strokes: Stroke[];
   hint?: "prose" | "math" | "mixed";
   locale?: string;
+  /** Optional status channel for long-running providers (model download, per-line OCR). */
+  onProgress?: (message: string) => void;
 }
 
 export interface RecognitionSegment {

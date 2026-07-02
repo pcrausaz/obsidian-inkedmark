@@ -67,3 +67,6 @@ export const ERASER_RADIUS = 12;
 
 /** Idle delay before auto-recognition fires after the last ink change. */
 export const AUTO_RECOGNIZE_IDLE_MS = 30_000;
+
+/** Hugging Face model for the experimental on-device recognizer (English, line-level). */
+export const TROCR_MODEL_ID = "Xenova/trocr-small-handwritten";

@@ -9,12 +9,13 @@
 
 export const LLM_PROVIDER_ID = "llm-byok";
 
-export type LlmVendor = "anthropic" | "openai" | "google";
+export type LlmVendor = "anthropic" | "openai" | "google" | "openrouter";
 
 export const VENDOR_LABELS: Record<LlmVendor, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI (GPT)",
   google: "Google (Gemini)",
+  openrouter: "OpenRouter (any model)",
 };
 
 /** Editable in settings; these are only the starting points. */
@@ -22,6 +23,7 @@ export const DEFAULT_MODELS: Record<LlmVendor, string> = {
   anthropic: "claude-opus-4-8",
   openai: "gpt-4o-mini",
   google: "gemini-2.5-flash",
+  openrouter: "google/gemini-2.5-flash",
 };
 
 /** Output budget for a page transcription. */
@@ -99,11 +101,19 @@ export function buildLlmRequest(input: LlmRequestInput): LlmHttpRequest {
       };
 
     case "openai":
+    case "openrouter":
       return {
-        url: "https://api.openai.com/v1/chat/completions",
+        url:
+          input.vendor === "openrouter"
+            ? "https://openrouter.ai/api/v1/chat/completions"
+            : "https://api.openai.com/v1/chat/completions",
         headers: {
           authorization: `Bearer ${input.apiKey}`,
           "content-type": "application/json",
+          // OpenRouter attribution headers (ignored by OpenAI).
+          ...(input.vendor === "openrouter"
+            ? { "http-referer": "https://inkedmark.com", "x-title": "InkedMark" }
+            : {}),
         },
         body: {
           model: input.model,
@@ -164,7 +174,7 @@ export function extractLlmText(vendor: LlmVendor, json: unknown): string {
       .join("\n");
   }
 
-  if (vendor === "openai") {
+  if (vendor === "openai" || vendor === "openrouter") {
     const choices = json.choices;
     if (!Array.isArray(choices) || !isRecord(choices[0])) return "";
     const message = choices[0].message;
