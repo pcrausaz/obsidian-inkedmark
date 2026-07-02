@@ -22,7 +22,7 @@
     "ink",
     "perfect-freehand"
   ],
-  "author": "Pascal Crausaz",
+  "author": "Liqpil (https://liqpil.com)",
   "license": "MIT",
   "dependencies": {
     "fflate": "^0.8.2",

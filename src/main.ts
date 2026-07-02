@@ -23,6 +23,13 @@ export default class InkedMarkPlugin extends Plugin {
   override settings!: InkedMarkSettings;
   readonly providers = createProviderRegistry();
 
+  /**
+   * Ink files the user explicitly toggled to the markdown view. Without this,
+   * `switchInkLeaves` (on layout-change) would immediately flip a toggled leaf
+   * back to the ink view, making the toggle command a no-op.
+   */
+  private readonly markdownOverride = new Set<string>();
+
   /** The recognition provider selected in settings (manual in v1). */
   activeProvider(): RecognitionProvider {
     return resolveProvider(this.providers, this.settings.recognitionProviderId);
@@ -49,10 +56,11 @@ export default class InkedMarkPlugin extends Plugin {
       id: "toggle-canvas-markdown-view",
       name: "Toggle canvas / markdown view",
       checkCallback: (checking) => {
-        const leaf = this.app.workspace.activeLeaf;
-        const file = this.activeFile(leaf);
-        const eligible = !!leaf && !!file && (this.isInkFile(file) || leaf.view instanceof InkView);
-        if (eligible && !checking && leaf) void this.toggleView(leaf);
+        const view =
+          this.app.workspace.getActiveViewOfType(InkView) ??
+          this.app.workspace.getActiveViewOfType(MarkdownView);
+        const eligible = !!view?.file && (view instanceof InkView || this.isInkFile(view.file));
+        if (eligible && !checking && view) void this.toggleView(view.leaf);
         return eligible;
       },
     });
@@ -160,13 +168,18 @@ export default class InkedMarkPlugin extends Plugin {
     );
   }
 
-  private async toggleDebugHud(): Promise<void> {
-    this.settings.debugHud = !this.settings.debugHud;
+  /** Turn the input debug overlay on/off everywhere (settings toggle + command). */
+  async setDebugHud(enabled: boolean, notify = false): Promise<void> {
+    this.settings.debugHud = enabled;
     await this.saveSettings();
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INK)) {
-      if (leaf.view instanceof InkView) leaf.view.setDebug(this.settings.debugHud);
+      if (leaf.view instanceof InkView) leaf.view.setDebug(enabled);
     }
-    new Notice(`InkedMark input debug overlay ${this.settings.debugHud ? "on" : "off"}`);
+    if (notify) new Notice(`InkedMark input debug overlay ${enabled ? "on" : "off"}`);
+  }
+
+  private async toggleDebugHud(): Promise<void> {
+    await this.setDebugHud(!this.settings.debugHud, true);
   }
 
   // --- Ink-file detection & view switching ----------------------------------
@@ -189,6 +202,7 @@ export default class InkedMarkPlugin extends Plugin {
       const view = leaf.view;
       if (!(view instanceof MarkdownView) || !view.file) continue;
       if (!this.isInkFile(view.file)) continue;
+      if (this.markdownOverride.has(view.file.path)) continue;
       void this.setLeafViewType(leaf, VIEW_TYPE_INK, view.file);
     }
   }
@@ -206,8 +220,10 @@ export default class InkedMarkPlugin extends Plugin {
   private async toggleView(leaf: WorkspaceLeaf): Promise<void> {
     const file = this.activeFile(leaf);
     if (!file) return;
-    const target = leaf.view instanceof InkView ? "markdown" : VIEW_TYPE_INK;
-    await this.setLeafViewType(leaf, target, file);
+    const toMarkdown = leaf.view instanceof InkView;
+    if (toMarkdown) this.markdownOverride.add(file.path);
+    else this.markdownOverride.delete(file.path);
+    await this.setLeafViewType(leaf, toMarkdown ? "markdown" : VIEW_TYPE_INK, file);
   }
 
   // --- New note -------------------------------------------------------------

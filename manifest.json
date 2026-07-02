@@ -3,8 +3,8 @@
   "name": "InkedMark",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Handwriting that lives inside your Obsidian notes — pressure-aware ink, fused with markdown, searchable and graphable.",
-  "author": "Pascal Crausaz",
-  "authorUrl": "https://inkedmark.com",
+  "description": "Handwrite inside your markdown notes with pressure-aware ink, a searchable text layer, inline sketches, and Apple Pencil support.",
+  "author": "Liqpil",
+  "authorUrl": "https://liqpil.com",
   "isDesktopOnly": false
 }

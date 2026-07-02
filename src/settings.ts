@@ -174,5 +174,31 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    new Setting(containerEl).setName("Support and diagnostics").setHeading();
+
+    new Setting(containerEl)
+      .setName("Input debug overlay")
+      .setDesc(
+        "Show raw pen/touch event data on the canvas — event sequence, coalesced counts, " +
+          "timing gaps, and stroke totals. Useful when reporting missing or broken strokes.",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.debugHud).onChange(async (value) => {
+          await this.plugin.setDebugHud(value);
+        }),
+      );
+
+    const support = containerEl.createDiv({ cls: "inkedmark-support" });
+    support.appendText("Questions or bug reports: ");
+    support.createEl("a", {
+      text: "support@inkedmark.com",
+      href: "mailto:support@inkedmark.com",
+    });
+    support.appendText(" · ");
+    support.createEl("a", {
+      text: "GitHub issues",
+      href: "https://github.com/pcrausaz/obsidian-inkedmark/issues",
+    });
   }
 }

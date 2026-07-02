@@ -11,7 +11,9 @@ the website deploy are automated; a few steps are inherently manual.
    ```bash
    npm version patch   # or minor / major
    ```
-   This tags the commit as `x.y.z`.
+   This tags the commit as `x.y.z` — **no `v` prefix** (enforced by `.npmrc`'s
+   `tag-version-prefix=""`; Obsidian requires the tag to match
+   `manifest.json`'s version exactly).
 3. Push the commit and the tag:
    ```bash
    git push && git push --tags

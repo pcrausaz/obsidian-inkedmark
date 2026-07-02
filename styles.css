@@ -40,6 +40,13 @@
   margin: 0 2px;
 }
 
+/* Settings-tab support footer. */
+.inkedmark-support {
+  margin-top: 1em;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
 /* Settings-tab callout (iPad Scribble guidance). */
 .inkedmark-callout {
   margin: 0 0 1em;

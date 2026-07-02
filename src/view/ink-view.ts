@@ -72,6 +72,22 @@ function padBounds(b: Bounds, pad: number): Bounds {
   return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
 }
 
+/**
+ * Highest numeric `s<N>` id in the document. Seeding the sequence from the max
+ * (not the count) prevents duplicate ids after erases: a file holding s1..s10
+ * with two erased has 8 strokes, and counting would mint "s9" — which exists.
+ */
+function maxStrokeId(doc: InkDocument): number {
+  let max = 0;
+  for (const region of doc.regions) {
+    for (const stroke of region.strokes) {
+      const m = /^s(\d+)$/.exec(stroke.id);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+  }
+  return max;
+}
+
 export class InkView extends TextFileView {
   private doc: InkDocument;
   private bodyText = "";
@@ -99,6 +115,8 @@ export class InkView extends TextFileView {
   private strokeSeq = 0;
   private readonly history = new History();
   private readonly index = new SpatialIndex();
+  /** id -> stroke, so index hits resolve in O(1) instead of scanning the region. */
+  private readonly strokeById = new Map<string, Stroke>();
   private eraseIds = new Set<string>();
 
   // Selection / move state (select tool).
@@ -183,7 +201,7 @@ export class InkView extends TextFileView {
     const parsed = parseInkFile(data, this.plugin.settings.paperWidth);
     this.bodyText = parsed.body;
     this.doc = parsed.doc ?? emptyDocument(this.plugin.settings.paperWidth);
-    this.strokeSeq = strokeCount(this.doc);
+    this.strokeSeq = maxStrokeId(this.doc);
     this.history.clear();
     this.rebuildIndex();
     this.syncPanelFromBody();
@@ -206,11 +224,15 @@ export class InkView extends TextFileView {
     this.strokeSeq = 0;
     this.history.clear();
     this.index.clear();
+    this.strokeById.clear();
     if (this.built) this.renderDry();
   }
 
   private rebuildIndex(): void {
-    this.index.rebuild(primaryRegion(this.doc).strokes);
+    const strokes = primaryRegion(this.doc).strokes;
+    this.index.rebuild(strokes);
+    this.strokeById.clear();
+    for (const stroke of strokes) this.strokeById.set(stroke.id, stroke);
   }
 
   // --- Lifecycle ------------------------------------------------------------
@@ -474,8 +496,9 @@ export class InkView extends TextFileView {
   private selectionBounds(): Bounds | null {
     if (this.selection.size === 0) return null;
     let acc: Bounds | null = null;
-    for (const stroke of primaryRegion(this.doc).strokes) {
-      if (!this.selection.has(stroke.id)) continue;
+    for (const id of this.selection) {
+      const stroke = this.strokeById.get(id);
+      if (!stroke) continue;
       const b = strokeBounds(stroke);
       if (!b) continue;
       acc = acc
@@ -700,6 +723,7 @@ export class InkView extends TextFileView {
     // stroke incrementally rather than re-outlining the whole document.
     this.history.push(this.doc, new AddStroke(stroke));
     this.index.insert(stroke);
+    this.strokeById.set(stroke.id, stroke);
 
     this.ensurePaperSize();
     this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
@@ -712,11 +736,10 @@ export class InkView extends TextFileView {
   /** Add any strokes under the eraser to the pending set and preview-hide them. */
   private eraseAt(sample: { x: number; y: number }): void {
     const radius = ERASER_RADIUS / (this.viewport.scale || 1);
-    const region = primaryRegion(this.doc);
     let changed = false;
     for (const id of this.index.queryPoint(sample.x, sample.y, radius)) {
       if (this.eraseIds.has(id)) continue;
-      const stroke = region.strokes.find((s) => s.id === id);
+      const stroke = this.strokeById.get(id);
       if (stroke && strokeHitByPoint(stroke, sample.x, sample.y, radius)) {
         this.eraseIds.add(id);
         changed = true;
@@ -731,7 +754,10 @@ export class InkView extends TextFileView {
     this.eraseIds = new Set();
     if (ids.size === 0) return;
     this.history.push(this.doc, new RemoveStrokes(ids));
-    for (const id of ids) this.index.remove(id);
+    for (const id of ids) {
+      this.index.remove(id);
+      this.strokeById.delete(id);
+    }
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -819,17 +845,17 @@ export class InkView extends TextFileView {
 
   private applyMarqueeSelection(rect: Bounds): void {
     this.selection = new Set();
-    const region = primaryRegion(this.doc);
     for (const id of this.index.queryBounds(rect)) {
-      const stroke = region.strokes.find((s) => s.id === id);
+      const stroke = this.strokeById.get(id);
       if (stroke && strokeIntersectsRect(stroke, rect)) this.selection.add(id);
     }
   }
 
   private translateSelection(dx: number, dy: number): void {
     if (dx === 0 && dy === 0) return;
-    for (const stroke of primaryRegion(this.doc).strokes) {
-      if (!this.selection.has(stroke.id)) continue;
+    for (const id of this.selection) {
+      const stroke = this.strokeById.get(id);
+      if (!stroke) continue;
       for (let i = 0; i < stroke.pts.length; i += 3) {
         stroke.pts[i] += dx;
         stroke.pts[i + 1] += dy;
@@ -842,7 +868,10 @@ export class InkView extends TextFileView {
     const ids = this.selection;
     this.selection = new Set();
     this.history.push(this.doc, new RemoveStrokes(ids, "Delete selection"));
-    for (const id of ids) this.index.remove(id);
+    for (const id of ids) {
+      this.index.remove(id);
+      this.strokeById.delete(id);
+    }
     this.renderDry();
     this.updateStatus();
     this.requestSave();
@@ -875,6 +904,7 @@ export class InkView extends TextFileView {
     if (region.strokes.length === 0) return;
     this.history.push(this.doc, new ClearRegion());
     this.index.clear();
+    this.strokeById.clear();
     this.renderDry();
     this.updateStatus();
     this.requestSave();
