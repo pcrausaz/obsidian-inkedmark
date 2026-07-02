@@ -20,6 +20,7 @@
 import { Notice, TextFileView, type WorkspaceLeaf } from "obsidian";
 import {
   AUTO_RECOGNIZE_IDLE_MS,
+  BLOCK_LABEL,
   BUILD_ID,
   DEFAULT_PAPER_HEIGHT,
   ERASER_RADIUS,
@@ -152,6 +153,9 @@ export class InkView extends TextFileView {
   // Bounded retry for layout() when the leaf has no size yet (first open).
   private layoutRetries = 0;
 
+  /** Original file bytes when the last load was suspect; saves echo these. */
+  private protectedRaw: string | null = null;
+
   // Diagnostic HUD state (toggled via command / settings).
   private debug: boolean;
   private hudEl: HTMLElement | null = null;
@@ -204,11 +208,28 @@ export class InkView extends TextFileView {
   // --- TextFileView persistence ---------------------------------------------
 
   getViewData(): string {
+    // Data-safety: when the last load looked wrong (an empty read of a
+    // non-empty file, or a data block we couldn't decode), never rebuild the
+    // file - echo the original bytes back so a save cannot wipe ink we failed
+    // to parse. iCloud "dataless" placeholders and partial syncs are the
+    // realistic triggers for both cases.
+    if (this.protectedRaw !== null) return this.protectedRaw;
     return buildInkFile(this.bodyText, this.doc);
   }
 
   setViewData(data: string, _clear: boolean): void {
     const parsed = parseInkFile(data, this.plugin.settings.paperWidth);
+    const emptyReadOfRealFile = data.trim().length === 0 && (this.file?.stat.size ?? 0) > 0;
+    const unreadableBlock = parsed.doc === null && data.includes(`%%${BLOCK_LABEL}`);
+    this.protectedRaw = emptyReadOfRealFile || unreadableBlock ? data : null;
+    if (this.protectedRaw !== null) {
+      new Notice(
+        "InkedMark: couldn't read this note's ink data (incomplete sync?). " +
+          "The note is protected until it loads cleanly - your ink on disk is safe. " +
+          "Reopen it once the file has fully synced.",
+        10000,
+      );
+    }
     this.bodyText = parsed.body;
     this.doc = parsed.doc ?? emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = maxStrokeId(this.doc);
@@ -295,6 +316,12 @@ export class InkView extends TextFileView {
    * section (the user's own prose is untouched). `auto` mutes the chatty notices.
    */
   async recognize(provider: RecognitionProvider, auto = false): Promise<void> {
+    if (this.protectedRaw !== null) {
+      if (!auto) {
+        new Notice("InkedMark: this note is protected until its ink data loads cleanly.");
+      }
+      return;
+    }
     const strokes = primaryRegion(this.doc).strokes;
     const hash = strokesContentHash(this.doc);
 
@@ -469,9 +496,11 @@ export class InkView extends TextFileView {
     const engine = providerLabel(this.plugin.settings.recognitionProviderId);
     this.toolbar?.setRecognizeLabel(`Recognize handwriting — ${engine}`);
     const debugSuffix = this.debug ? ` · ${engine}` : "";
+    const guard = this.protectedRaw !== null ? " · ⚠ protected (sync)" : "";
     this.toolbar?.setStatus(
       `${this.buildLabel} · ${strokeCount(this.doc)} strokes · ${Math.round(this.scale * 100)}%` +
-        debugSuffix,
+        debugSuffix +
+        guard,
     );
   }
 
@@ -614,6 +643,10 @@ export class InkView extends TextFileView {
 
   private readonly pointerCallbacks: PointerControllerCallbacks = {
     onStart: (sample) => {
+      if (this.protectedRaw !== null) {
+        new Notice("InkedMark: this note is protected until its ink data loads cleanly.");
+        return;
+      }
       if (this.toolState.tool === "eraser") {
         this.eraseIds = new Set();
         this.eraseAt(sample);
