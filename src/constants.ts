@@ -71,16 +71,18 @@ export const AUTO_RECOGNIZE_IDLE_MS = 30_000;
 /** Provider id of the experimental on-device recognizer. */
 export const TROCR_PROVIDER_ID = "trocr-local";
 
-/** On-device recognizer models (English, line-level). Sizes are the actual
- * downloads: q8 on WASM, fp16 on WebGPU. */
+/** On-device recognizer models (English, line-level). fp32 only: the q8
+ * exports of these models are rejected by the on-device ONNX stack (QDQ
+ * transform error) even though they load in isolation - revisit if the
+ * exports or onnxruntime-web are updated. */
 export const TROCR_MODELS = {
   small: {
     id: "Xenova/trocr-small-handwritten",
-    label: "Fast — small model (~65-125 MB)",
+    label: "Fast — small model (~250 MB)",
   },
   base: {
     id: "Xenova/trocr-base-handwritten",
-    label: "Accurate — base model (~340-670 MB)",
+    label: "Accurate — base model (~1.3 GB, desktop/WebGPU only)",
   },
 } as const;
 

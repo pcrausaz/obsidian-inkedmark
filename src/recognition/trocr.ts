@@ -104,14 +104,15 @@ export class TrocrProvider implements RecognitionProvider {
       }
     };
 
-    // WebGPU is fast where it works (desktop Electron); WASM is the safe
-    // fallback. Explicit dtypes keep the download honest: fp16 on WebGPU
-    // (half the fp32 default), q8 on WASM.
+    // fp32 everywhere, deliberately: the q8/fp16 exports of these models are
+    // rejected by the on-device ONNX stack ("Missing required scale ..." in
+    // the QDQ->MatMulNBits transform) even though the same files load fine in
+    // isolation. fp32 has no quantization nodes and is the one configuration
+    // proven on real devices. Bigger download, but it works.
     if (webgpuWorthTrying() && !this.wasmOnly.has(modelId)) {
       try {
         const pipe = (await pipeline("image-to-text", modelId, {
           device: "webgpu",
-          dtype: "fp16",
           progress_callback: progressCallback,
         })) as unknown as ImageToTextPipeline;
         return { pipe, device: "webgpu" };
@@ -119,9 +120,14 @@ export class TrocrProvider implements RecognitionProvider {
         // fall through to WASM
       }
     }
+    if (modelId === TROCR_MODELS.base.id) {
+      throw new Error(
+        "the Accurate (base) model needs WebGPU (desktop). Switch to the Fast model in settings.",
+      );
+    }
     const pipe = (await pipeline("image-to-text", modelId, {
       device: "wasm",
-      dtype: "q8",
+      dtype: "fp32",
       progress_callback: progressCallback,
     })) as unknown as ImageToTextPipeline;
     return { pipe, device: "wasm" };

@@ -19,6 +19,17 @@ See `QA.md` for the test pass that surfaced these.
   guard the transition. Do NOT filter "straight" strokes — that would delete
   legitimate ruled lines.
 
+### P2 — Quantized (q8/fp16) TrOCR exports rejected on-device
+
+- The q8 exports of Xenova/trocr-\* fail on real devices with
+  "Missing required scale ... TransposeDQWeightsForMatMulNBits" during session
+  creation, yet the same files load cleanly in three local harnesses
+  (onnxruntime-node, plain ort-web, JSEP ort-web — same versions). Root cause
+  in the bundled JSEP stack not yet isolated.
+- **Mitigation:** on-device recognition uses fp32 only (~250 MB small,
+  ~1.3 GB base; base restricted to WebGPU/desktop). Revisit when the model
+  exports or onnxruntime-web move.
+
 ## Fixed
 
 ### P1 — Note written in dark mode invisible on a light-mode device ✅
