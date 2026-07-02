@@ -58,6 +58,7 @@ import { History } from "../model/history";
 import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize";
 import type { RecognitionProvider } from "../recognition/provider";
 import { MANUAL_PROVIDER_ID } from "../recognition/manual";
+import { providerLabel } from "../recognition/registry";
 import { readTextSection, writeTextSection } from "../recognition/text-layer";
 import {
   PointerController,
@@ -147,6 +148,9 @@ export class InkView extends TextFileView {
 
   // Auto-recognition idle timer (opt-in setting).
   private autoRecognizeTimer = 0;
+
+  // Bounded retry for layout() when the leaf has no size yet (first open).
+  private layoutRetries = 0;
 
   // Diagnostic HUD state (toggled via command / settings).
   private debug: boolean;
@@ -462,8 +466,12 @@ export class InkView extends TextFileView {
 
   /** Toolbar readout: build id + live committed-stroke count + zoom (a testing aid). */
   private updateStatus(): void {
+    const engine = providerLabel(this.plugin.settings.recognitionProviderId);
+    this.toolbar?.setRecognizeLabel(`Recognize handwriting — ${engine}`);
+    const debugSuffix = this.debug ? ` · ${engine}` : "";
     this.toolbar?.setStatus(
-      `${this.buildLabel} · ${strokeCount(this.doc)} strokes · ${Math.round(this.scale * 100)}%`,
+      `${this.buildLabel} · ${strokeCount(this.doc)} strokes · ${Math.round(this.scale * 100)}%` +
+        debugSuffix,
     );
   }
 
@@ -473,7 +481,17 @@ export class InkView extends TextFileView {
     if (!this.renderer) return;
     const cssW = this.surfaceEl.clientWidth;
     const cssH = this.surfaceEl.clientHeight;
-    if (cssW === 0 || cssH === 0) return;
+    if (cssW === 0 || cssH === 0) {
+      // First-open race: the leaf may not be attached/measured yet when the
+      // view initializes (a blank canvas until something re-triggers layout).
+      // Retry briefly; the ResizeObserver covers anything slower than this.
+      if (this.layoutRetries < 60) {
+        this.layoutRetries++;
+        requestAnimationFrame(() => this.layout());
+      }
+      return;
+    }
+    this.layoutRetries = 0;
 
     // The roll's world width fits the surface at scale 1; zoom scales the visuals.
     this.paperWorldWidth = Math.min(this.plugin.settings.paperWidth, cssW);

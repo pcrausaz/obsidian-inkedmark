@@ -22,6 +22,12 @@ const LINE_MAX_EDGE = 768;
 type ImageToTextOutput = Array<{ generated_text?: string }>;
 type ImageToTextPipeline = (input: string) => Promise<ImageToTextOutput>;
 
+/** The slice of transformers.js this provider uses. */
+interface TransformersModule {
+  pipeline: (task: string, model: string, options?: Record<string, unknown>) => Promise<unknown>;
+  env: { allowLocalModels: boolean };
+}
+
 export class TrocrProvider implements RecognitionProvider {
   readonly id = TROCR_PROVIDER_ID;
   /** Ink is never transmitted; the one-time model download is disclosed in settings/README. */
@@ -40,8 +46,28 @@ export class TrocrProvider implements RecognitionProvider {
     return this.pipelinePromise;
   }
 
+  /**
+   * Import transformers.js with the BROWSER backend forced. Obsidian desktop is
+   * Electron, where `process.release.name === "node"`, so the library's env
+   * detection picks its Node backend (onnxruntime-node: devices coreml/webgpu/
+   * cpu) — whose native binaries a plugin cannot ship ("Unsupported device:
+   * wasm" on macOS). Masking `process` for the module-init tick makes it select
+   * the web/WASM backend instead; the mask is restored immediately after.
+   */
+  private async importTransformers(): Promise<TransformersModule> {
+    const g = globalThis as { process?: unknown };
+    const original = g.process;
+    const mask = typeof window !== "undefined" && original !== undefined;
+    if (mask) g.process = undefined;
+    try {
+      return (await import("@huggingface/transformers")) as unknown as TransformersModule;
+    } finally {
+      if (mask) g.process = original;
+    }
+  }
+
   private async createPipeline(): Promise<ImageToTextPipeline> {
-    const { pipeline, env } = await import("@huggingface/transformers");
+    const { pipeline, env } = await this.importTransformers();
     env.allowLocalModels = false;
 
     const progressCallback = (info: { status?: string; progress?: number; file?: string }) => {
