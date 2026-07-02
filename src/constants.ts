@@ -68,6 +68,9 @@ export const ERASER_RADIUS = 12;
 /** Idle delay before auto-recognition fires after the last ink change. */
 export const AUTO_RECOGNIZE_IDLE_MS = 30_000;
 
+/** Provider id of the experimental on-device recognizer. */
+export const TROCR_PROVIDER_ID = "trocr-local";
+
 /** On-device recognizer models (English, line-level). Sizes are the actual
  * downloads: q8 on WASM, fp16 on WebGPU. */
 export const TROCR_MODELS = {

@@ -5,6 +5,7 @@ import {
   PALETTE,
   SIZES,
   TROCR_MODELS,
+  TROCR_PROVIDER_ID,
   type TrocrSize,
 } from "./constants";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
@@ -15,7 +16,6 @@ import {
   VENDOR_LABELS,
 } from "./recognition/llm-request";
 import { providerLabel } from "./recognition/registry";
-import { TROCR_PROVIDER_ID } from "./recognition/trocr";
 import type InkedMarkPlugin from "./main";
 
 export type ToolId = "pen" | "highlighter" | "eraser" | "select";

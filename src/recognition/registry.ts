@@ -9,7 +9,7 @@
 import type { RecognitionProvider } from "./provider";
 import { MANUAL_PROVIDER_ID, ManualProvider } from "./manual";
 import { LLM_PROVIDER_ID } from "./llm-request";
-import { TROCR_PROVIDER_ID } from "./trocr";
+import { TROCR_PROVIDER_ID } from "../constants";
 
 export function createProviderRegistry(): Map<string, RecognitionProvider> {
   const registry = new Map<string, RecognitionProvider>();
