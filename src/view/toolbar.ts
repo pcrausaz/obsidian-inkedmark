@@ -30,6 +30,7 @@ export interface ToolbarCallbacks {
   onZoomOut(): void;
   onZoomReset(): void;
   onToggleText(): void;
+  onRecognize(): void;
 }
 
 export class Toolbar {
@@ -100,6 +101,7 @@ export class Toolbar {
     this.iconButton("zoom-in", "Zoom in", () => this.callbacks.onZoomIn());
     this.addSeparator();
     this.iconButton("file-text", "Text layer (transcription)", () => this.callbacks.onToggleText());
+    this.iconButton("scan-text", "Recognize handwriting", () => this.callbacks.onRecognize());
 
     // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
     this.statusEl = this.root.createEl("span", { cls: "inkedmark-status" });

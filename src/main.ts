@@ -4,8 +4,9 @@ import {
   Notice,
   Platform,
   Plugin,
-  type TFile,
-  type WorkspaceLeaf,
+  TFile,
+  type ViewState,
+  WorkspaceLeaf,
   normalizePath,
 } from "obsidian";
 import { FRONTMATTER_FLAG, INK_FILE_SUFFIX, SCHEMA_VERSION, VIEW_TYPE_INK } from "./constants";
@@ -50,6 +51,7 @@ export default class InkedMarkPlugin extends Plugin {
     this.providers.set(llm.id, llm);
 
     this.registerView(VIEW_TYPE_INK, (leaf) => new InkView(leaf, this));
+    this.installViewStatePatch();
     registerInkEmbeds(this);
 
     this.addRibbonIcon(ICON_INK_NOTE, "Create handwriting note", () => {
@@ -181,10 +183,12 @@ export default class InkedMarkPlugin extends Plugin {
   /**
    * Run recognition on a view, asking for one-time consent before the first
    * cloud call (cloud providers send a rendered image of the ink off-device).
+   * Background (`auto`) runs never prompt — without consent they just skip.
    */
-  private async runRecognition(view: InkView): Promise<void> {
+  async runRecognition(view: InkView, auto = false): Promise<void> {
     const provider = this.activeProvider();
     if (provider.requiresNetwork && !this.settings.cloudConsentGiven) {
+      if (auto) return;
       const vendor = VENDOR_LABELS[this.settings.llmVendor];
       const confirmed = await ConfirmModal.confirm(this.app, {
         title: "Send handwriting to a cloud service?",
@@ -198,7 +202,7 @@ export default class InkedMarkPlugin extends Plugin {
       this.settings.cloudConsentGiven = true;
       await this.saveSettings();
     }
-    await view.recognize(provider);
+    await view.recognize(provider, auto);
   }
 
   /** Turn the input debug overlay on/off everywhere (settings toggle + command). */
@@ -216,6 +220,40 @@ export default class InkedMarkPlugin extends Plugin {
   }
 
   // --- Ink-file detection & view switching ----------------------------------
+
+  /**
+   * Intercept `WorkspaceLeaf.setViewState` so an ink file *instantiates* as the
+   * ink view instead of being opened as markdown and flipped afterwards. The
+   * after-the-fact flip (on layout-change) fought Obsidian's navigation history:
+   * pressing Back landed on the intermediate markdown state, which we instantly
+   * flipped again — eating the Back press. Patching at the state level means no
+   * markdown state ever enters history. Same approach as Kanban/Excalidraw;
+   * the original method is restored on unload.
+   */
+  private installViewStatePatch(): void {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const plugin = this;
+    const original = WorkspaceLeaf.prototype.setViewState;
+    WorkspaceLeaf.prototype.setViewState = function (
+      this: WorkspaceLeaf,
+      viewState: ViewState,
+      eState?: unknown,
+    ) {
+      if (viewState.type === "markdown") {
+        const path = (viewState.state as Record<string, unknown> | undefined)?.file;
+        if (typeof path === "string" && !plugin.markdownOverride.has(path)) {
+          const file = plugin.app.vault.getAbstractFileByPath(path);
+          if (file instanceof TFile && plugin.isInkFile(file)) {
+            viewState = { ...viewState, type: VIEW_TYPE_INK };
+          }
+        }
+      }
+      return original.call(this, viewState, eState);
+    };
+    this.register(() => {
+      WorkspaceLeaf.prototype.setViewState = original;
+    });
+  }
 
   isInkFile(file: TFile): boolean {
     if (file.extension !== "md") return false;

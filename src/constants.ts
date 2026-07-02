@@ -64,3 +64,6 @@ export const DEFAULT_HIGHLIGHTER_ALPHA = 0.4;
 
 /** Eraser hit radius in screen px (converted to world via the viewport scale). */
 export const ERASER_RADIUS = 12;
+
+/** Idle delay before auto-recognition fires after the last ink change. */
+export const AUTO_RECOGNIZE_IDLE_MS = 30_000;

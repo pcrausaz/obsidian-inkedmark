@@ -38,6 +38,8 @@ export interface InkDocument {
   version: number;
   view: ViewState;
   regions: Region[];
+  /** Content hash of the strokes at the last successful recognition run. */
+  recognizedHash?: string;
 }
 
 export interface Bounds {
@@ -93,6 +95,27 @@ export function strokeBounds(stroke: Stroke): Bounds | null {
     if (y > maxY) maxY = y;
   }
   return { minX, minY, maxX, maxY };
+}
+
+/**
+ * FNV-1a content hash of every stroke (ids + quantized points). Used to skip
+ * recognition when the ink hasn't changed since the last run — recognizing the
+ * same page twice wastes an API call and can churn previously-good text.
+ */
+export function strokesContentHash(doc: InkDocument): string {
+  let h = 0x811c9dc5;
+  const mix = (n: number): void => {
+    h ^= n | 0;
+    h = Math.imul(h, 0x01000193);
+  };
+  for (const region of doc.regions) {
+    for (const stroke of region.strokes) {
+      for (let i = 0; i < stroke.id.length; i++) mix(stroke.id.charCodeAt(i));
+      mix(stroke.pts.length);
+      for (const v of stroke.pts) mix(Math.round(v * 100));
+    }
+  }
+  return (h >>> 0).toString(36);
 }
 
 /** Union of every stroke's bounds in a document, or `null` if empty. */

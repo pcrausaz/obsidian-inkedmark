@@ -29,8 +29,23 @@ See `QA.md` for the test pass that surfaced these.
 - **Fix:** `mountFileEmbed` re-paints via a bounded `MutationObserver`
   (`MAX_REPAINTS`), disconnecting during its own writes and on unload via a
   `MarkdownRenderChild`. Needs an on-device re-check in reading mode.
-- _Still open (UX):_ opening the ink note from an embed should leave an obvious
-  way back — rely on Obsidian's back arrow / tabs; revisit if users get stuck.
+
+### P1 — Back arrow from an ink note didn't return to the embedding note ✅
+
+- Navigation history contained an intermediate "ink file as markdown" state
+  (the `%%inkedmark%%` flash); the layout-change auto-switcher instantly
+  flipped it back to the ink view, eating the Back press.
+- **Fix:** patch `WorkspaceLeaf.setViewState` (the Kanban/Excalidraw approach)
+  so ink files instantiate directly as the ink view — no markdown state ever
+  enters history. Original method restored on plugin unload.
+
+### P1 — Deleting all strokes left a stale transcription ✅
+
+- The managed `<!--inkedmark-text-->` section persisted after clearing the ink.
+- **Fix:** the trash/clear action now also clears the managed section (user
+  prose untouched), and any recognition run on an empty page removes it.
+  Recognition is also skipped entirely when the ink content hash is unchanged
+  since the last run.
 
 ### P1 — Text-layer panel exposed YAML frontmatter ✅
 

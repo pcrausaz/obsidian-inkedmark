@@ -34,6 +34,8 @@ export interface InkedMarkSettings {
   llmApiKey: string;
   /** User has acknowledged that cloud recognition sends ink off-device. */
   cloudConsentGiven: boolean;
+  /** Run cloud recognition automatically after the ink has been idle. */
+  autoRecognize: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkedMarkSettings = {
@@ -53,6 +55,7 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   llmModel: "",
   llmApiKey: "",
   cloudConsentGiven: false,
+  autoRecognize: false,
 };
 
 export class InkedMarkSettingTab extends PluginSettingTab {
@@ -239,6 +242,20 @@ export class InkedMarkSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             });
         });
+
+      new Setting(containerEl)
+        .setName("Recognize automatically")
+        .setDesc(
+          "Run recognition in the background about 30 seconds after you stop writing, " +
+            "and only when the ink actually changed. Requires the one-time cloud consent " +
+            "(run it manually once first).",
+        )
+        .addToggle((toggle) =>
+          toggle.setValue(this.plugin.settings.autoRecognize).onChange(async (value) => {
+            this.plugin.settings.autoRecognize = value;
+            await this.plugin.saveSettings();
+          }),
+        );
     }
 
     new Setting(containerEl).setName("Support and diagnostics").setHeading();

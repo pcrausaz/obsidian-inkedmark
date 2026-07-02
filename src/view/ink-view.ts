@@ -19,6 +19,7 @@
 
 import { Notice, TextFileView, type WorkspaceLeaf } from "obsidian";
 import {
+  AUTO_RECOGNIZE_IDLE_MS,
   BUILD_ID,
   DEFAULT_PAPER_HEIGHT,
   ERASER_RADIUS,
@@ -50,12 +51,13 @@ import {
   primaryRegion,
   strokeBounds,
   strokeCount,
+  strokesContentHash,
 } from "../model/document";
 import { AddStroke, ClearRegion, MoveStrokes, RemoveStrokes } from "../model/commands";
 import { History } from "../model/history";
 import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize";
 import type { RecognitionProvider } from "../recognition/provider";
-import { writeTextSection } from "../recognition/text-layer";
+import { readTextSection, writeTextSection } from "../recognition/text-layer";
 import {
   PointerController,
   type PointerControllerCallbacks,
@@ -141,6 +143,9 @@ export class InkView extends TextFileView {
   // Wet-render throttle: coalesce many pointermoves into one draw per frame.
   private wetFrame = 0;
   private pendingPredicted: PointerSample[] = [];
+
+  // Auto-recognition idle timer (opt-in setting).
+  private autoRecognizeTimer = 0;
 
   // Diagnostic HUD state (toggled via command / settings).
   private debug: boolean;
@@ -248,6 +253,7 @@ export class InkView extends TextFileView {
     if (this.dryFrame) cancelAnimationFrame(this.dryFrame);
     if (this.hudFrame) cancelAnimationFrame(this.hudFrame);
     if (this.wetFrame) cancelAnimationFrame(this.wetFrame);
+    window.clearTimeout(this.autoRecognizeTimer);
     this.pointer?.detach();
     this.resizeObserver?.disconnect();
     this.toolbar?.destroy();
@@ -278,12 +284,30 @@ export class InkView extends TextFileView {
 
   /**
    * Run a recognition provider over this note's strokes and merge any recognized
-   * text into the body's managed text section. The manual provider is a no-op.
+   * text into the body's managed text section. Skipped when the ink hasn't
+   * changed since the last run (content hash), so repeated/automatic triggers
+   * don't burn API calls or churn good text. An empty page clears the managed
+   * section (the user's own prose is untouched). `auto` mutes the chatty notices.
    */
-  async recognize(provider: RecognitionProvider): Promise<void> {
+  async recognize(provider: RecognitionProvider, auto = false): Promise<void> {
     const strokes = primaryRegion(this.doc).strokes;
+    const hash = strokesContentHash(this.doc);
+
     if (strokes.length === 0) {
-      new Notice("InkedMark: nothing to recognize yet.");
+      if (readTextSection(this.bodyText) !== null) {
+        this.bodyText = writeTextSection(this.bodyText, "");
+        this.syncPanelFromBody();
+        this.doc.recognizedHash = hash;
+        this.requestSave();
+        if (!auto) new Notice("InkedMark: page is empty — cleared the transcription.");
+      } else if (!auto) {
+        new Notice("InkedMark: nothing to recognize yet.");
+      }
+      return;
+    }
+
+    if (provider.requiresNetwork && this.doc.recognizedHash === hash) {
+      if (!auto) new Notice("InkedMark: transcription is already up to date.");
       return;
     }
 
@@ -295,10 +319,11 @@ export class InkView extends TextFileView {
       if (result.text.trim()) {
         this.bodyText = writeTextSection(this.bodyText, result.text);
         this.syncPanelFromBody();
-        if (!this.showTextPanel) this.toggleTextPanel();
+        this.doc.recognizedHash = hash;
+        if (!auto && !this.showTextPanel) this.toggleTextPanel();
         this.requestSave();
         new Notice("InkedMark: transcription added to the text layer — review and edit it.");
-      } else {
+      } else if (!auto) {
         new Notice("InkedMark: manual transcription — type it in the text-layer panel.");
       }
     } catch (error) {
@@ -307,6 +332,22 @@ export class InkView extends TextFileView {
     } finally {
       progress?.hide();
     }
+  }
+
+  /**
+   * Debounced background recognition: fires once the ink has been idle for a
+   * while. Opt-in, and never prompts — it only runs for a network provider the
+   * user has already consented to. The content-hash check in `recognize` makes
+   * redundant fires free.
+   */
+  private scheduleAutoRecognize(): void {
+    window.clearTimeout(this.autoRecognizeTimer);
+    if (!this.plugin.settings.autoRecognize) return;
+    if (!this.plugin.settings.cloudConsentGiven) return;
+    if (!this.plugin.activeProvider().requiresNetwork) return;
+    this.autoRecognizeTimer = window.setTimeout(() => {
+      void this.plugin.runRecognition(this, true);
+    }, AUTO_RECOGNIZE_IDLE_MS);
   }
 
   /** Show/hide the text-layer panel (searchable markdown body). */
@@ -357,6 +398,7 @@ export class InkView extends TextFileView {
       onZoomOut: () => this.zoomOut(),
       onZoomReset: () => this.resetView(),
       onToggleText: () => this.toggleTextPanel(),
+      onRecognize: () => void this.plugin.runRecognition(this),
     });
 
     this.surfaceEl = root.createDiv({ cls: "inkedmark-surface" });
@@ -740,6 +782,7 @@ export class InkView extends TextFileView {
     this.ensurePaperSize();
     this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -772,6 +815,7 @@ export class InkView extends TextFileView {
     }
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -886,6 +930,7 @@ export class InkView extends TextFileView {
     }
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -900,6 +945,7 @@ export class InkView extends TextFileView {
     this.rebuildIndex();
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -908,6 +954,7 @@ export class InkView extends TextFileView {
     this.rebuildIndex();
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -917,6 +964,14 @@ export class InkView extends TextFileView {
     this.history.push(this.doc, new ClearRegion());
     this.index.clear();
     this.strokeById.clear();
+    // The auto-transcription mirrors the ink; clearing the page clears it too.
+    // (User prose outside the managed section is untouched. Undo restores the
+    // strokes but not the transcription - re-run recognition to regenerate it.)
+    if (readTextSection(this.bodyText) !== null) {
+      this.bodyText = writeTextSection(this.bodyText, "");
+      this.syncPanelFromBody();
+    }
+    this.doc.recognizedHash = undefined;
     this.renderDry();
     this.updateStatus();
     this.requestSave();

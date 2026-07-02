@@ -67,6 +67,12 @@ Two providers (Settings → Handwriting recognition):
   and model and paste **your own API key**. Typical cost is a fraction of a
   cent per page.
 
+Run it from the toolbar's **scan button**, the command palette, or turn on
+**Recognize automatically** in settings to have it run in the background
+~30 seconds after you stop writing. Recognition is skipped when the ink hasn't
+changed since the last run, and clearing the page clears the transcription
+section too (your own prose in the text layer is never touched).
+
 #### Network use disclosure
 
 InkedMark makes network requests **only** when you run _Recognize handwriting_
