@@ -1,6 +1,12 @@
 import { type App, Platform, PluginSettingTab, Setting } from "obsidian";
 import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_WIDTH, PALETTE, SIZES } from "./constants";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
+import {
+  DEFAULT_MODELS,
+  LLM_PROVIDER_ID,
+  type LlmVendor,
+  VENDOR_LABELS,
+} from "./recognition/llm-request";
 import { providerLabel } from "./recognition/registry";
 import type InkedMarkPlugin from "./main";
 
@@ -21,6 +27,13 @@ export interface InkedMarkSettings {
   debugHud: boolean;
   /** Whether the one-time iPad "disable Scribble" notice has been shown. */
   scribbleNoticeShown: boolean;
+  /** Cloud recognition (BYOK) configuration. */
+  llmVendor: LlmVendor;
+  /** Empty string means "use the vendor's default model". */
+  llmModel: string;
+  llmApiKey: string;
+  /** User has acknowledged that cloud recognition sends ink off-device. */
+  cloudConsentGiven: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkedMarkSettings = {
@@ -36,6 +49,10 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   desynchronizedCanvas: true,
   debugHud: false,
   scribbleNoticeShown: false,
+  llmVendor: "anthropic",
+  llmModel: "",
+  llmApiKey: "",
+  cloudConsentGiven: false,
 };
 
 export class InkedMarkSettingTab extends PluginSettingTab {
@@ -166,14 +183,63 @@ export class InkedMarkSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Handwriting recognition")
-      .setDesc("Provider that turns strokes into searchable text. v1 is manual transcription.")
+      .setDesc(
+        "Provider that turns strokes into searchable text. Manual = you type the transcription; " +
+          "Cloud AI sends an image of the ink to a vision model using your own API key.",
+      )
       .addDropdown((dropdown) => {
         for (const id of this.plugin.providers.keys()) dropdown.addOption(id, providerLabel(id));
         dropdown.setValue(this.plugin.settings.recognitionProviderId).onChange(async (value) => {
           this.plugin.settings.recognitionProviderId = value;
           await this.plugin.saveSettings();
+          this.display(); // re-render so the Cloud AI fields appear/disappear
         });
       });
+
+    if (this.plugin.settings.recognitionProviderId === LLM_PROVIDER_ID) {
+      new Setting(containerEl).setName("Cloud AI vendor").addDropdown((dropdown) => {
+        for (const [id, label] of Object.entries(VENDOR_LABELS)) dropdown.addOption(id, label);
+        dropdown.setValue(this.plugin.settings.llmVendor).onChange(async (value) => {
+          this.plugin.settings.llmVendor = value as LlmVendor;
+          await this.plugin.saveSettings();
+          this.display(); // refresh the model placeholder
+        });
+      });
+
+      new Setting(containerEl)
+        .setName("Cloud AI model")
+        .setDesc(
+          `Leave empty for the default (${DEFAULT_MODELS[this.plugin.settings.llmVendor]}). ` +
+            "Any vision-capable model id works — pick a cheaper one (e.g. claude-haiku-4-5) " +
+            "if cost matters more than accuracy.",
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder(DEFAULT_MODELS[this.plugin.settings.llmVendor])
+            .setValue(this.plugin.settings.llmModel)
+            .onChange(async (value) => {
+              this.plugin.settings.llmModel = value.trim();
+              await this.plugin.saveSettings();
+            }),
+        );
+
+      new Setting(containerEl)
+        .setName("Cloud AI API key")
+        .setDesc(
+          "Your own key for the selected vendor. Stored locally in this vault's plugin data " +
+            "and sent only to that vendor when you run recognition.",
+        )
+        .addText((text) => {
+          text.inputEl.type = "password";
+          text
+            .setPlaceholder("sk-…")
+            .setValue(this.plugin.settings.llmApiKey)
+            .onChange(async (value) => {
+              this.plugin.settings.llmApiKey = value.trim();
+              await this.plugin.saveSettings();
+            });
+        });
+    }
 
     new Setting(containerEl).setName("Support and diagnostics").setHeading();
 

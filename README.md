@@ -50,9 +50,31 @@ count, and zoom.
 - **Insert inline handwriting** — inserts a starter ` ```inkedmark ` block.
 - **Toggle canvas / markdown view** — see the raw markdown of an ink note.
 - **Toggle text layer panel** — open the transcription panel.
-- **Recognize handwriting in this note** — runs the recognition provider
-  (v1 ships manual transcription; automatic HWR is a future provider).
+- **Recognize handwriting in this note** — runs the selected recognition
+  provider (see below).
 - **Zoom in / Zoom out / Fit / reset view**, **Toggle input debug overlay**.
+
+### Handwriting recognition
+
+Two providers (Settings → Handwriting recognition):
+
+- **Manual** (default) — you type the transcription in the text-layer panel.
+  Never uses the network.
+- **Cloud AI (bring your own key)** — renders the note's ink to an image and
+  asks a vision model for a markdown transcription, which lands in a clearly
+  marked section of the text layer for you to review and edit. Supports
+  Anthropic (Claude), OpenAI (GPT), and Google (Gemini); you pick the vendor
+  and model and paste **your own API key**. Typical cost is a fraction of a
+  cent per page.
+
+#### Network use disclosure
+
+InkedMark makes network requests **only** when you run _Recognize handwriting_
+with the Cloud AI provider selected: a rendered PNG of the current note's ink
+is sent to your chosen vendor using your API key, after a one-time
+confirmation. Nothing else is ever transmitted — no telemetry, no analytics,
+and the manual provider works fully offline. Your API key is stored locally in
+the vault's plugin data (`data.json`).
 
 ### The text layer (search & graph)
 

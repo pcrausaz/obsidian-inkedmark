@@ -286,14 +286,26 @@ export class InkView extends TextFileView {
       new Notice("InkedMark: nothing to recognize yet.");
       return;
     }
-    const result = await provider.recognize({ strokes });
-    if (result.text.trim()) {
-      this.bodyText = writeTextSection(this.bodyText, result.text);
-      this.syncPanelFromBody();
-      this.requestSave();
-      new Notice(`InkedMark: recognized ${strokes.length} strokes into the text layer.`);
-    } else {
-      new Notice("InkedMark: manual transcription — type it in the text-layer panel (⌸).");
+
+    const progress = provider.requiresNetwork
+      ? new Notice("InkedMark: recognizing handwriting…", 0)
+      : null;
+    try {
+      const result = await provider.recognize({ strokes });
+      if (result.text.trim()) {
+        this.bodyText = writeTextSection(this.bodyText, result.text);
+        this.syncPanelFromBody();
+        if (!this.showTextPanel) this.toggleTextPanel();
+        this.requestSave();
+        new Notice("InkedMark: transcription added to the text layer — review and edit it.");
+      } else {
+        new Notice("InkedMark: manual transcription — type it in the text-layer panel.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(`InkedMark recognition failed: ${message}`, 8000);
+    } finally {
+      progress?.hide();
     }
   }
 

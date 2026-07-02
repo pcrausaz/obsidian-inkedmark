@@ -586,6 +586,15 @@ obsidian-inkedmark/
     draw N strokes, measures the pointer-event delivery ratio (reusing the 0.1
     debug-HUD infra), and, if capture is low, nudges them to disable iPadOS
     Scribble. Doubles as the repeatable capture/latency check.
+- **0.6 — Recognition providers (in progress on `develop`).** Decisions
+  (2026-07-02): cloud **LLM-BYOK first** (Anthropic/OpenAI/Google vision models,
+  user's own key — `recognition/llm.ts` + pure `llm-request.ts`/`render.ts`,
+  one-time off-device consent modal, transcription written into the managed
+  text section); **freemium** monetization — free = manual + BYOK (+ on-device
+  later), a hosted paid tier (Cloudflare Worker + license keys) only once BYOK
+  demand is proven; payments rail decided later. On-device TrOCR
+  (transformers.js, ~50 MB model download, English-only, desktop-first) follows
+  behind an experimental flag.
 
 ---
 

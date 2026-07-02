@@ -19,6 +19,7 @@ export default defineConfig({
         "src/recognition/text-layer.ts",
         "src/recognition/registry.ts",
         "src/recognition/manual.ts",
+        "src/recognition/llm-request.ts",
       ],
       thresholds: {
         lines: 80,

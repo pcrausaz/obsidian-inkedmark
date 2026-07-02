@@ -8,6 +8,7 @@
 
 import type { RecognitionProvider } from "./provider";
 import { MANUAL_PROVIDER_ID, ManualProvider } from "./manual";
+import { LLM_PROVIDER_ID } from "./llm-request";
 
 export function createProviderRegistry(): Map<string, RecognitionProvider> {
   const registry = new Map<string, RecognitionProvider>();
@@ -27,5 +28,6 @@ export function resolveProvider(
 /** A human label for a provider id (for the settings dropdown). */
 export function providerLabel(id: string): string {
   if (id === MANUAL_PROVIDER_ID) return "Manual (type the transcription yourself)";
+  if (id === LLM_PROVIDER_ID) return "Cloud AI (bring your own key)";
   return id;
 }

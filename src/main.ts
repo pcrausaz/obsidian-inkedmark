@@ -16,6 +16,9 @@ import { buildInkFile, encodeDocument } from "./model/serialize";
 import { buildInlineBlock } from "./model/inline-block";
 import type { RecognitionProvider } from "./recognition/provider";
 import { createProviderRegistry, resolveProvider } from "./recognition/registry";
+import { LlmProvider } from "./recognition/llm";
+import { VENDOR_LABELS } from "./recognition/llm-request";
+import { ConfirmModal } from "./ui/confirm-modal";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
 
@@ -38,6 +41,13 @@ export default class InkedMarkPlugin extends Plugin {
   override async onload(): Promise<void> {
     await this.loadSettings();
     registerIcons();
+
+    const llm = new LlmProvider(() => ({
+      vendor: this.settings.llmVendor,
+      model: this.settings.llmModel,
+      apiKey: this.settings.llmApiKey,
+    }));
+    this.providers.set(llm.id, llm);
 
     this.registerView(VIEW_TYPE_INK, (leaf) => new InkView(leaf, this));
     registerInkEmbeds(this);
@@ -89,7 +99,7 @@ export default class InkedMarkPlugin extends Plugin {
       name: "Recognize handwriting in this note",
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(InkView);
-        if (view && !checking) void view.recognize(this.activeProvider());
+        if (view && !checking) void this.runRecognition(view);
         return !!view;
       },
     });
@@ -166,6 +176,29 @@ export default class InkedMarkPlugin extends Plugin {
         "strokes before InkedMark can see them.",
       0,
     );
+  }
+
+  /**
+   * Run recognition on a view, asking for one-time consent before the first
+   * cloud call (cloud providers send a rendered image of the ink off-device).
+   */
+  private async runRecognition(view: InkView): Promise<void> {
+    const provider = this.activeProvider();
+    if (provider.requiresNetwork && !this.settings.cloudConsentGiven) {
+      const vendor = VENDOR_LABELS[this.settings.llmVendor];
+      const confirmed = await ConfirmModal.confirm(this.app, {
+        title: "Send handwriting to a cloud service?",
+        message:
+          `Cloud recognition renders this note's ink into an image and sends it to ${vendor} ` +
+          "using your API key. The ink leaves your device for that request only. " +
+          "This choice is remembered; the manual provider never uses the network.",
+        cta: "Send",
+      });
+      if (!confirmed) return;
+      this.settings.cloudConsentGiven = true;
+      await this.saveSettings();
+    }
+    await view.recognize(provider);
   }
 
   /** Turn the input debug overlay on/off everywhere (settings toggle + command). */
