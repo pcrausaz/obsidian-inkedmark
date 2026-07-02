@@ -1,5 +1,12 @@
 import { type App, Platform, PluginSettingTab, Setting } from "obsidian";
-import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_WIDTH, PALETTE, SIZES } from "./constants";
+import {
+  DEFAULT_HIGHLIGHTER_ALPHA,
+  DEFAULT_PAPER_WIDTH,
+  PALETTE,
+  SIZES,
+  TROCR_MODELS,
+  type TrocrSize,
+} from "./constants";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import {
   DEFAULT_MODELS,
@@ -39,6 +46,8 @@ export interface InkedMarkSettings {
   autoRecognize: boolean;
   /** Expose the experimental on-device (TrOCR) recognizer. */
   experimentalTrocr: boolean;
+  /** On-device model size (accuracy vs download/speed). */
+  trocrModel: TrocrSize;
 }
 
 export const DEFAULT_SETTINGS: InkedMarkSettings = {
@@ -60,6 +69,7 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   cloudConsentGiven: false,
   autoRecognize: false,
   experimentalTrocr: false,
+  trocrModel: "small",
 };
 
 export class InkedMarkSettingTab extends PluginSettingTab {
@@ -269,7 +279,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       .setName("On-device recognition (experimental)")
       .setDesc(
         "Adds an offline recognizer (TrOCR) to the provider list. Your ink never leaves " +
-          "the device, but the first run downloads a ~40 MB model from Hugging Face. " +
+          "the device, but the first run downloads the model from Hugging Face. " +
           "English handwriting only, line-by-line, noticeably less accurate than Cloud AI; " +
           "desktop recommended.",
       )
@@ -283,6 +293,24 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           this.display();
         }),
       );
+
+    if (this.plugin.settings.experimentalTrocr) {
+      new Setting(containerEl)
+        .setName("On-device model")
+        .setDesc(
+          "Both stay on your machine. Switching downloads the other model once; " +
+            "the smaller download applies on WASM, the larger on WebGPU.",
+        )
+        .addDropdown((dropdown) => {
+          for (const [key, model] of Object.entries(TROCR_MODELS)) {
+            dropdown.addOption(key, model.label);
+          }
+          dropdown.setValue(this.plugin.settings.trocrModel).onChange(async (value) => {
+            this.plugin.settings.trocrModel = value as TrocrSize;
+            await this.plugin.saveSettings();
+          });
+        });
+    }
 
     new Setting(containerEl).setName("Support and diagnostics").setHeading();
 

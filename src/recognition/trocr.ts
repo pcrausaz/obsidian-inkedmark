@@ -9,7 +9,7 @@
  * desktop-recommended (WebGPU when available, WASM fallback).
  */
 
-import { TROCR_MODEL_ID } from "../constants";
+import { TROCR_MODELS, type TrocrSize } from "../constants";
 import type { RecognitionProvider, RecognitionRequest, RecognitionResult } from "./provider";
 import { groupStrokesIntoLines } from "./lines";
 import { renderStrokesForRecognition } from "./render";
@@ -28,22 +28,31 @@ interface TransformersModule {
   env: { allowLocalModels: boolean };
 }
 
+export interface TrocrConfig {
+  size: TrocrSize;
+}
+
 export class TrocrProvider implements RecognitionProvider {
   readonly id = TROCR_PROVIDER_ID;
   /** Ink is never transmitted; the one-time model download is disclosed in settings/README. */
   readonly requiresNetwork = false;
 
-  private pipelinePromise: Promise<ImageToTextPipeline> | null = null;
+  /** One pipeline per model id, so switching model size doesn't re-download the other. */
+  private readonly pipelines = new Map<string, Promise<ImageToTextPipeline>>();
   private onProgress: ((message: string) => void) | undefined;
 
-  private loadPipeline(): Promise<ImageToTextPipeline> {
-    if (!this.pipelinePromise) {
-      this.pipelinePromise = this.createPipeline().catch((error: unknown) => {
-        this.pipelinePromise = null; // allow a retry after a failed download
+  constructor(private readonly getConfig: () => TrocrConfig) {}
+
+  private loadPipeline(modelId: string): Promise<ImageToTextPipeline> {
+    let promise = this.pipelines.get(modelId);
+    if (!promise) {
+      promise = this.createPipeline(modelId).catch((error: unknown) => {
+        this.pipelines.delete(modelId); // allow a retry after a failed download
         throw error;
       });
+      this.pipelines.set(modelId, promise);
     }
-    return this.pipelinePromise;
+    return promise;
   }
 
   /**
@@ -66,7 +75,7 @@ export class TrocrProvider implements RecognitionProvider {
     }
   }
 
-  private async createPipeline(): Promise<ImageToTextPipeline> {
+  private async createPipeline(modelId: string): Promise<ImageToTextPipeline> {
     const { pipeline, env } = await this.importTransformers();
     env.allowLocalModels = false;
 
@@ -76,14 +85,17 @@ export class TrocrProvider implements RecognitionProvider {
       }
     };
 
-    // WebGPU is fast where present (desktop Electron); WASM is the safe fallback.
+    // WebGPU is fast where present (desktop Electron); WASM is the safe
+    // fallback. Explicit dtypes keep the download honest: fp16 on WebGPU
+    // (half the fp32 default), q8 on WASM.
     try {
-      return (await pipeline("image-to-text", TROCR_MODEL_ID, {
+      return (await pipeline("image-to-text", modelId, {
         device: "webgpu",
+        dtype: "fp16",
         progress_callback: progressCallback,
       })) as unknown as ImageToTextPipeline;
     } catch {
-      return (await pipeline("image-to-text", TROCR_MODEL_ID, {
+      return (await pipeline("image-to-text", modelId, {
         device: "wasm",
         dtype: "q8",
         progress_callback: progressCallback,
@@ -96,8 +108,9 @@ export class TrocrProvider implements RecognitionProvider {
     const lines = groupStrokesIntoLines(req.strokes);
     if (lines.length === 0) return { text: "", confidence: 0 };
 
-    req.onProgress?.("loading on-device model (first run downloads ~40 MB)…");
-    const pipe = await this.loadPipeline();
+    const model = TROCR_MODELS[this.getConfig().size] ?? TROCR_MODELS.small;
+    req.onProgress?.("loading on-device model (first run downloads it)…");
+    const pipe = await this.loadPipeline(model.id);
 
     const texts: string[] = [];
     for (let i = 0; i < lines.length; i++) {

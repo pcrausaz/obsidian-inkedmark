@@ -68,5 +68,17 @@ export const ERASER_RADIUS = 12;
 /** Idle delay before auto-recognition fires after the last ink change. */
 export const AUTO_RECOGNIZE_IDLE_MS = 30_000;
 
-/** Hugging Face model for the experimental on-device recognizer (English, line-level). */
-export const TROCR_MODEL_ID = "Xenova/trocr-small-handwritten";
+/** On-device recognizer models (English, line-level). Sizes are the actual
+ * downloads: q8 on WASM, fp16 on WebGPU. */
+export const TROCR_MODELS = {
+  small: {
+    id: "Xenova/trocr-small-handwritten",
+    label: "Fast — small model (~65-125 MB)",
+  },
+  base: {
+    id: "Xenova/trocr-base-handwritten",
+    label: "Accurate — base model (~340-670 MB)",
+  },
+} as const;
+
+export type TrocrSize = keyof typeof TROCR_MODELS;

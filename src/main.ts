@@ -51,7 +51,7 @@ export default class InkedMarkPlugin extends Plugin {
     }));
     this.providers.set(llm.id, llm);
 
-    const trocr = new TrocrProvider();
+    const trocr = new TrocrProvider(() => ({ size: this.settings.trocrModel }));
     this.providers.set(trocr.id, trocr);
 
     this.registerView(VIEW_TYPE_INK, (leaf) => new InkView(leaf, this));
