@@ -15,6 +15,7 @@ export default defineConfig({
         "src/canvas/hit-test.ts",
         "src/canvas/spatial-index.ts",
         "src/canvas/zoom.ts",
+        "src/canvas/ink-color.ts",
         "src/input/palm-rejection.ts",
         "src/recognition/text-layer.ts",
         "src/recognition/registry.ts",

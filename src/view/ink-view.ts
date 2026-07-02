@@ -474,6 +474,7 @@ export class InkView extends TextFileView {
       this.plugin.settings.desynchronizedCanvas,
     );
     this.renderer.highlighterAlpha = this.plugin.settings.highlighterAlpha;
+    this.renderer.darkTheme = document.body.classList.contains("theme-dark");
 
     this.pointer = new PointerController(
       this.scrollEl,
@@ -483,6 +484,15 @@ export class InkView extends TextFileView {
     this.pointer.attach();
 
     this.registerDomEvent(this.scrollEl, "scroll", () => this.onScroll());
+    // Repaint when the theme flips so monochrome ink re-adapts to the paper.
+    this.registerEvent(
+      this.app.workspace.on("css-change", () => {
+        if (this.renderer) {
+          this.renderer.darkTheme = document.body.classList.contains("theme-dark");
+          this.renderDry();
+        }
+      }),
+    );
     this.registerDomEvent(this.contentEl, "keydown", (e) => this.onKeyDown(e));
 
     this.resizeObserver = new ResizeObserver(() => this.layout());

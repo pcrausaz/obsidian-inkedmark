@@ -21,6 +21,18 @@ See `QA.md` for the test pass that surfaced these.
 
 ## Fixed
 
+### P1 — Note written in dark mode invisible on a light-mode device ✅
+
+- Root cause (found by Pascal): ink color is stored as absolute hex, so white
+  strokes chosen on a dark-theme iPad rendered white-on-white on a light-theme
+  Mac. Earlier "incomplete sync" diagnosis was wrong — the file was intact.
+- **Fix:** monochrome ink (black/white swatches) is treated as semantic
+  "default ink" at render time and adapts to the paper theme
+  (`canvas/ink-color.ts`); deliberate colors are never remapped. Applies to
+  the ink view (live theme switches included) and to embeds. The data-safety
+  guard added during the investigation stays — it protects against genuine
+  partial-sync reads regardless.
+
 ### P1 — `![[*.ink.md]]` embed blank in reading mode (async race) ✅
 
 - The file-embed post-processor raced Obsidian's async embed population; in
