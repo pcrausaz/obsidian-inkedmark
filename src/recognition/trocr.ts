@@ -24,6 +24,7 @@ type ImageToTextPipeline = (input: string) => Promise<ImageToTextOutput>;
 interface LoadedPipeline {
   pipe: ImageToTextPipeline;
   device: "webgpu" | "wasm";
+  dispose: () => Promise<void>;
 }
 
 /** The slice of transformers.js this provider uses. */
@@ -65,6 +66,11 @@ export class TrocrProvider implements RecognitionProvider {
   private loadPipeline(modelId: string): Promise<LoadedPipeline> {
     let promise = this.pipelines.get(modelId);
     if (!promise) {
+      // fp32 sessions are large (hundreds of MB); keep only the active model.
+      for (const [otherId, other] of this.pipelines) {
+        this.pipelines.delete(otherId);
+        void other.then((loaded) => loaded.dispose()).catch(() => undefined);
+      }
       promise = this.createPipeline(modelId).catch((error: unknown) => {
         this.pipelines.delete(modelId); // allow a retry after a failed download
         throw error;
@@ -109,13 +115,19 @@ export class TrocrProvider implements RecognitionProvider {
     // the QDQ->MatMulNBits transform) even though the same files load fine in
     // isolation. fp32 has no quantization nodes and is the one configuration
     // proven on real devices. Bigger download, but it works.
+    const asLoaded = (raw: unknown, device: "webgpu" | "wasm"): LoadedPipeline => ({
+      pipe: raw as ImageToTextPipeline,
+      device,
+      dispose: () => (raw as { dispose?: () => Promise<void> }).dispose?.() ?? Promise.resolve(),
+    });
+
     if (webgpuWorthTrying() && !this.wasmOnly.has(modelId)) {
       try {
-        const pipe = (await pipeline("image-to-text", modelId, {
+        const raw = await pipeline("image-to-text", modelId, {
           device: "webgpu",
           progress_callback: progressCallback,
-        })) as unknown as ImageToTextPipeline;
-        return { pipe, device: "webgpu" };
+        });
+        return asLoaded(raw, "webgpu");
       } catch {
         // fall through to WASM
       }
@@ -125,12 +137,12 @@ export class TrocrProvider implements RecognitionProvider {
         "the Accurate (base) model needs WebGPU (desktop). Switch to the Fast model in settings.",
       );
     }
-    const pipe = (await pipeline("image-to-text", modelId, {
+    const raw = await pipeline("image-to-text", modelId, {
       device: "wasm",
       dtype: "fp32",
       progress_callback: progressCallback,
-    })) as unknown as ImageToTextPipeline;
-    return { pipe, device: "wasm" };
+    });
+    return asLoaded(raw, "wasm");
   }
 
   /** Run the per-line OCR loop with the given pipeline. */

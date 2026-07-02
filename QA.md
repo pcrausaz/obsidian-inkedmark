@@ -86,6 +86,33 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       placeholder; a `caption:` line renders below.
 - [ ] A corrupt payload shows "Unreadable…", not a crash.
 
+## P1 — Search & graph integration (spec §6)
+
+The `.md`-based format means Obsidian indexes everything for free — verify the
+inheritance actually holds on device:
+
+- [ ] Core search finds an ink note by a word that exists only in its
+      transcription (text layer).
+- [ ] A `[[wiki-link]]` typed (or recognized) in the text layer appears in the
+      graph as a real edge, and in the linked note's backlinks.
+- [ ] A `#tag` in the text layer shows up in the tag pane / tag search.
+- [ ] Quick Switcher finds the ink note by name.
+- [ ] `![[Note.ink.md]]` in a host note creates an embed edge in the graph.
+- [ ] Searching for gibberish (e.g. `qzx`) does not drown results in matches
+      from the base64 stroke block (spec §17 watchpoint).
+
+## P1 — Handwriting recognition (0.6)
+
+- [ ] Cloud AI (any vendor): scan button transcribes into the managed section;
+      unchanged ink is skipped on a second run; clearing the page clears the
+      managed section.
+- [ ] One-time consent modal appears on the first cloud run only; auto-recognize
+      (if enabled) never prompts.
+- [ ] Desktop: on-device (experimental) small model transcribes a simple page;
+      the progress notice shows download % then line N/M.
+- [ ] Mobile: on-device provider is absent from settings; if synced-on, a scan
+      falls back to manual/clear message rather than crashing.
+
 ## P2 — Cross-cutting
 
 - [ ] Light and dark themes both legible (ink, paper, toolbar, selection box).

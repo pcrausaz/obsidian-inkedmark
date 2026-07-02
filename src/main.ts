@@ -9,7 +9,13 @@ import {
   WorkspaceLeaf,
   normalizePath,
 } from "obsidian";
-import { FRONTMATTER_FLAG, INK_FILE_SUFFIX, SCHEMA_VERSION, VIEW_TYPE_INK } from "./constants";
+import {
+  FRONTMATTER_FLAG,
+  INK_FILE_SUFFIX,
+  SCHEMA_VERSION,
+  TROCR_PROVIDER_ID,
+  VIEW_TYPE_INK,
+} from "./constants";
 import { DEFAULT_SETTINGS, InkedMarkSettingTab, type InkedMarkSettings } from "./settings";
 import { ICON_INK_NOTE, registerIcons } from "./icons";
 import { emptyDocument } from "./model/document";
@@ -17,6 +23,7 @@ import { buildInkFile, encodeDocument } from "./model/serialize";
 import { buildInlineBlock } from "./model/inline-block";
 import type { RecognitionProvider } from "./recognition/provider";
 import { createProviderRegistry, resolveProvider } from "./recognition/registry";
+import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import { LlmProvider } from "./recognition/llm";
 import { TrocrProvider } from "./recognition/trocr";
 import { VENDOR_LABELS } from "./recognition/llm-request";
@@ -37,7 +44,13 @@ export default class InkedMarkPlugin extends Plugin {
 
   /** The recognition provider selected in settings (manual in v1). */
   activeProvider(): RecognitionProvider {
-    return resolveProvider(this.providers, this.settings.recognitionProviderId);
+    // Synced settings can select the on-device provider on a device that can't
+    // run it (mobile webviews); fall back to manual there.
+    const id =
+      Platform.isMobileApp && this.settings.recognitionProviderId === TROCR_PROVIDER_ID
+        ? MANUAL_PROVIDER_ID
+        : this.settings.recognitionProviderId;
+    return resolveProvider(this.providers, id);
   }
 
   override async onload(): Promise<void> {

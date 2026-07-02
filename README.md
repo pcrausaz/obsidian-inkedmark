@@ -69,11 +69,13 @@ Three providers (Settings → Handwriting recognition):
   the market (e.g. `google/gemini-2.5-flash`, `anthropic/claude-haiku-4.5`)
   with a single key.
 
-- **On-device (experimental)** — an offline TrOCR model transcribes the ink
-  line-by-line, entirely on your machine. Enable it under _On-device
-  recognition (experimental)_ in settings. First run downloads a ~40 MB model
-  from Hugging Face (cached afterwards); English handwriting only, noticeably
-  less accurate than Cloud AI, desktop recommended.
+- **On-device (experimental, desktop only)** — an offline TrOCR model
+  transcribes the ink line-by-line, entirely on your machine. Enable it under
+  _On-device recognition (experimental)_ in settings. First run downloads the
+  model from Hugging Face (~250 MB Fast / ~1.3 GB Accurate; cached
+  afterwards). English handwriting only, and noticeably less accurate than
+  Cloud AI — treat it as the privacy/offline fallback, not the quality path.
+  Mobile webviews can't run the models, so it is desktop only.
 
 Run it from the toolbar's **scan button**, the command palette, or turn on
 **Recognize automatically** in settings to have it run in the background
@@ -153,6 +155,7 @@ one-time reminder and a settings note on iPad.
 - **Bugs & feature requests:**
   [GitHub issues](https://github.com/pcrausaz/obsidian-inkedmark/issues)
 - **Website:** [inkedmark.com](https://inkedmark.com)
+- **If InkedMark is useful to you:** [buy me a coffee](https://ko-fi.com/inkedmark) ☕
 
 ## Development
 
@@ -168,7 +171,7 @@ npm run build        # typecheck + production bundle
 The build emits `main.js`; together with `manifest.json` and `styles.css` it
 forms the Obsidian plugin. See [`SPECIFICATION.md`](./SPECIFICATION.md) for the
 technical brief, [`QA.md`](./QA.md) for the on-device test pass,
-[`KNOWN-ISSUES.md`](./KNOWN-ISSUES.md) for tracked bugs, and
+[GitHub issues](https://github.com/pcrausaz/obsidian-inkedmark/issues) for tracked bugs, and
 [`RELEASE.md`](./RELEASE.md) for the release flow.
 
 ### Deploying to a test vault (incl. iPad via iCloud)

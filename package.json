@@ -1,7 +1,7 @@
 {
   "name": "obsidian-inkedmark",
-  "version": "0.1.0",
-  "description": "Handwriting that lives inside your Obsidian notes — pressure-aware ink, fused with markdown, searchable and graphable.",
+  "version": "1.0.0",
+  "description": "Handwriting that lives inside your Obsidian notes \u2014 pressure-aware ink, fused with markdown, searchable and graphable.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

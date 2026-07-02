@@ -27,6 +27,20 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          awk -v tag="$TAG" '
+            $0 ~ "^## \\[" tag "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! [ -s release-notes.md ]; then
+            echo "InkedMark $TAG. Install via Community Plugins or BRAT; manual install uses the three attached files." > release-notes.md
+          fi
+          cat release-notes.md
+
       - name: Create GitHub Release with plugin artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,5 +48,5 @@ jobs:
         run: |
           gh release create "$TAG" \
             --title "$TAG" \
-            --notes "InkedMark $TAG. Install via Community Plugins or BRAT; manual install uses the three attached files." \
+            --notes-file release-notes.md \
             main.js manifest.json styles.css

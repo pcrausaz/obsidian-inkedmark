@@ -206,7 +206,11 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       )
       .addDropdown((dropdown) => {
         for (const id of this.plugin.providers.keys()) {
-          if (id === TROCR_PROVIDER_ID && !this.plugin.settings.experimentalTrocr) continue;
+          if (
+            id === TROCR_PROVIDER_ID &&
+            (!this.plugin.settings.experimentalTrocr || Platform.isMobileApp)
+          )
+            continue;
           dropdown.addOption(id, providerLabel(id));
         }
         dropdown.setValue(this.plugin.settings.recognitionProviderId).onChange(async (value) => {
@@ -275,42 +279,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         );
     }
 
-    new Setting(containerEl)
-      .setName("On-device recognition (experimental)")
-      .setDesc(
-        "Adds an offline recognizer (TrOCR) to the provider list. Your ink never leaves " +
-          "the device, but the first run downloads the model from Hugging Face. " +
-          "English handwriting only, line-by-line, noticeably less accurate than Cloud AI. " +
-          "Desktop only — mobile webviews cannot run the models.",
-      )
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.experimentalTrocr).onChange(async (value) => {
-          this.plugin.settings.experimentalTrocr = value;
-          if (!value && this.plugin.settings.recognitionProviderId === TROCR_PROVIDER_ID) {
-            this.plugin.settings.recognitionProviderId = MANUAL_PROVIDER_ID;
-          }
-          await this.plugin.saveSettings();
-          this.display();
-        }),
-      );
-
-    if (this.plugin.settings.experimentalTrocr) {
-      new Setting(containerEl)
-        .setName("On-device model")
-        .setDesc(
-          "Both stay on your machine. Switching downloads the other model once; " +
-            "the smaller download applies on WASM, the larger on WebGPU.",
-        )
-        .addDropdown((dropdown) => {
-          for (const [key, model] of Object.entries(TROCR_MODELS)) {
-            dropdown.addOption(key, model.label);
-          }
-          dropdown.setValue(this.plugin.settings.trocrModel).onChange(async (value) => {
-            this.plugin.settings.trocrModel = value as TrocrSize;
-            await this.plugin.saveSettings();
-          });
-        });
-    }
+    if (!Platform.isMobileApp) this.displayTrocrSettings(containerEl);
 
     new Setting(containerEl).setName("Support and diagnostics").setHeading();
 
@@ -337,5 +306,51 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       text: "GitHub issues",
       href: "https://github.com/pcrausaz/obsidian-inkedmark/issues",
     });
+    support.appendText(" · ");
+    support.createEl("a", {
+      text: "Buy me a coffee",
+      href: "https://ko-fi.com/inkedmark",
+    });
+  }
+
+  /** On-device recognition settings (desktop only; mobile webviews can't run the models). */
+  private displayTrocrSettings(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("On-device recognition (experimental)")
+      .setDesc(
+        "Adds an offline recognizer (TrOCR) to the provider list. Your ink never leaves " +
+          "the device, but the first run downloads the model from Hugging Face. " +
+          "English handwriting only, and noticeably less accurate than Cloud AI — expect " +
+          "rough output on cursive. Desktop only.",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.experimentalTrocr).onChange(async (value) => {
+          this.plugin.settings.experimentalTrocr = value;
+          if (!value && this.plugin.settings.recognitionProviderId === TROCR_PROVIDER_ID) {
+            this.plugin.settings.recognitionProviderId = MANUAL_PROVIDER_ID;
+          }
+          await this.plugin.saveSettings();
+          this.display();
+        }),
+      );
+
+    if (this.plugin.settings.experimentalTrocr) {
+      new Setting(containerEl)
+        .setName("On-device model")
+        .setDesc(
+          "Each model downloads once and runs locally. Fast is the quickest and least " +
+            "accurate; Accurate is better but still below Cloud AI, and needs WebGPU " +
+            "(a large one-time download).",
+        )
+        .addDropdown((dropdown) => {
+          for (const [key, model] of Object.entries(TROCR_MODELS)) {
+            dropdown.addOption(key, model.label);
+          }
+          dropdown.setValue(this.plugin.settings.trocrModel).onChange(async (value) => {
+            this.plugin.settings.trocrModel = value as TrocrSize;
+            await this.plugin.saveSettings();
+          });
+        });
+    }
   }
 }
