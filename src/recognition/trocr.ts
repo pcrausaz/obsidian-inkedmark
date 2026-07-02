@@ -152,6 +152,12 @@ export class TrocrProvider implements RecognitionProvider {
   }
 
   async recognize(req: RecognitionRequest): Promise<RecognitionResult> {
+    // Mobile webviews can't run this: WebGPU glue is broken in WKWebView, the
+    // quantized exports fail the QDQ transform, and the fp32 model OOMs the
+    // per-tab WASM heap. Fail with a clear message instead of a crash.
+    if (Platform.isMobileApp) {
+      throw new Error("on-device recognition needs a desktop; use Cloud AI or Manual on mobile.");
+    }
     this.onProgress = req.onProgress;
     const lines = groupStrokesIntoLines(req.strokes);
     if (lines.length === 0) return { text: "", confidence: 0 };

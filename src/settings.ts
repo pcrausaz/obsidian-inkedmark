@@ -280,8 +280,8 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       .setDesc(
         "Adds an offline recognizer (TrOCR) to the provider list. Your ink never leaves " +
           "the device, but the first run downloads the model from Hugging Face. " +
-          "English handwriting only, line-by-line, noticeably less accurate than Cloud AI; " +
-          "desktop recommended.",
+          "English handwriting only, line-by-line, noticeably less accurate than Cloud AI. " +
+          "Desktop only — mobile webviews cannot run the models.",
       )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.experimentalTrocr).onChange(async (value) => {
