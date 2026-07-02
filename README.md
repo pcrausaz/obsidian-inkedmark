@@ -56,7 +56,7 @@ count, and zoom.
 
 ### Handwriting recognition
 
-Two providers (Settings → Handwriting recognition):
+Three providers (Settings → Handwriting recognition):
 
 - **Manual** (default) — you type the transcription in the text-layer panel.
   Never uses the network.
