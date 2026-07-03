@@ -7,6 +7,12 @@
 > Handwriting that lives inside your notes — pressure-aware ink, fused with
 > markdown, searchable and graphable like everything else in your vault.
 
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Handwriting a quote in InkedMark, then recognition adds it to the searchable text layer" width="680" />
+  <br />
+  <em>Write by hand, hit recognize, and the transcription lands in the note's searchable text layer — <a href="https://inkedmark.com">full demo on inkedmark.com</a>.</em>
+</p>
+
 InkedMark makes handwriting a **first-class block inside ordinary markdown
 notes**. You write by hand where handwriting is better (diagrams, math,
 marginalia, fast capture) and type where typing is better — in the _same note_ —
