@@ -5,6 +5,16 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.0.1] - 2026-07-03
+
+Community-directory submission feedback.
+
+- Release assets (`main.js`, `manifest.json`, `styles.css`) now ship with
+  GitHub artifact attestations — cryptographic proof they were built from
+  this repository by CI. Verify with:
+  `gh attestation verify main.js --repo pcrausaz/obsidian-inkedmark`.
+- No functional changes.
+
 ## [1.0.0] - 2026-07-02
 
 First public release.
