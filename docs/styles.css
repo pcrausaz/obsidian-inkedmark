@@ -117,41 +117,6 @@ main {
   font-size: 1.15rem;
 }
 
-.gallery {
-  margin: 0 0 56px;
-}
-
-.gallery h2 {
-  text-align: center;
-}
-
-.gallery-grid {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-.gallery figure {
-  margin: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.gallery img {
-  width: 100%;
-  height: auto;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-.gallery figcaption {
-  margin-top: 10px;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
 .install {
   background: var(--surface);
   border: 1px solid var(--border);

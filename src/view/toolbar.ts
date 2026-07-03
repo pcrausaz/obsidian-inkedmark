@@ -30,6 +30,7 @@ export interface ToolbarCallbacks {
   onZoomOut(): void;
   onZoomReset(): void;
   onToggleText(): void;
+  onRecognize(): void;
 }
 
 export class Toolbar {
@@ -38,6 +39,7 @@ export class Toolbar {
   private readonly swatches = new Map<string, HTMLButtonElement>();
   private readonly sizeButtons = new Map<number, HTMLButtonElement>();
   private pressureButton!: HTMLButtonElement;
+  private recognizeButton!: HTMLButtonElement;
   private statusEl!: HTMLElement;
 
   constructor(
@@ -100,6 +102,9 @@ export class Toolbar {
     this.iconButton("zoom-in", "Zoom in", () => this.callbacks.onZoomIn());
     this.addSeparator();
     this.iconButton("file-text", "Text layer (transcription)", () => this.callbacks.onToggleText());
+    this.recognizeButton = this.iconButton("scan-text", "Recognize handwriting", () =>
+      this.callbacks.onRecognize(),
+    );
 
     // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
     this.statusEl = this.root.createEl("span", { cls: "inkedmark-status" });
@@ -108,6 +113,11 @@ export class Toolbar {
   /** Set the right-aligned status text (build id, stroke count, …). */
   setStatus(text: string): void {
     this.statusEl.setText(text);
+  }
+
+  /** Update the recognize button's tooltip (shows the active engine). */
+  setRecognizeLabel(label: string): void {
+    this.recognizeButton.setAttribute("aria-label", label);
   }
 
   private addToolButton(tool: ActiveTool, icon: string, label: string): void {

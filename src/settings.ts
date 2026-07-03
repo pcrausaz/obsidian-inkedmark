@@ -1,6 +1,20 @@
 import { type App, Platform, PluginSettingTab, Setting } from "obsidian";
-import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_WIDTH, PALETTE, SIZES } from "./constants";
+import {
+  DEFAULT_HIGHLIGHTER_ALPHA,
+  DEFAULT_PAPER_WIDTH,
+  PALETTE,
+  SIZES,
+  TROCR_MODELS,
+  TROCR_PROVIDER_ID,
+  type TrocrSize,
+} from "./constants";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
+import {
+  DEFAULT_MODELS,
+  LLM_PROVIDER_ID,
+  type LlmVendor,
+  VENDOR_LABELS,
+} from "./recognition/llm-request";
 import { providerLabel } from "./recognition/registry";
 import type InkedMarkPlugin from "./main";
 
@@ -21,6 +35,19 @@ export interface InkedMarkSettings {
   debugHud: boolean;
   /** Whether the one-time iPad "disable Scribble" notice has been shown. */
   scribbleNoticeShown: boolean;
+  /** Cloud recognition (BYOK) configuration. */
+  llmVendor: LlmVendor;
+  /** Empty string means "use the vendor's default model". */
+  llmModel: string;
+  llmApiKey: string;
+  /** User has acknowledged that cloud recognition sends ink off-device. */
+  cloudConsentGiven: boolean;
+  /** Run cloud recognition automatically after the ink has been idle. */
+  autoRecognize: boolean;
+  /** Expose the experimental on-device (TrOCR) recognizer. */
+  experimentalTrocr: boolean;
+  /** On-device model size (accuracy vs download/speed). */
+  trocrModel: TrocrSize;
 }
 
 export const DEFAULT_SETTINGS: InkedMarkSettings = {
@@ -36,6 +63,13 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   desynchronizedCanvas: true,
   debugHud: false,
   scribbleNoticeShown: false,
+  llmVendor: "anthropic",
+  llmModel: "",
+  llmApiKey: "",
+  cloudConsentGiven: false,
+  autoRecognize: false,
+  experimentalTrocr: false,
+  trocrModel: "small",
 };
 
 export class InkedMarkSettingTab extends PluginSettingTab {
@@ -166,14 +200,86 @@ export class InkedMarkSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Handwriting recognition")
-      .setDesc("Provider that turns strokes into searchable text. v1 is manual transcription.")
+      .setDesc(
+        "Provider that turns strokes into searchable text. Manual = you type the transcription; " +
+          "Cloud AI sends an image of the ink to a vision model using your own API key.",
+      )
       .addDropdown((dropdown) => {
-        for (const id of this.plugin.providers.keys()) dropdown.addOption(id, providerLabel(id));
+        for (const id of this.plugin.providers.keys()) {
+          if (
+            id === TROCR_PROVIDER_ID &&
+            (!this.plugin.settings.experimentalTrocr || Platform.isMobileApp)
+          )
+            continue;
+          dropdown.addOption(id, providerLabel(id));
+        }
         dropdown.setValue(this.plugin.settings.recognitionProviderId).onChange(async (value) => {
           this.plugin.settings.recognitionProviderId = value;
           await this.plugin.saveSettings();
+          this.display(); // re-render so the Cloud AI fields appear/disappear
         });
       });
+
+    if (this.plugin.settings.recognitionProviderId === LLM_PROVIDER_ID) {
+      new Setting(containerEl).setName("Cloud AI vendor").addDropdown((dropdown) => {
+        for (const [id, label] of Object.entries(VENDOR_LABELS)) dropdown.addOption(id, label);
+        dropdown.setValue(this.plugin.settings.llmVendor).onChange(async (value) => {
+          this.plugin.settings.llmVendor = value as LlmVendor;
+          await this.plugin.saveSettings();
+          this.display(); // refresh the model placeholder
+        });
+      });
+
+      new Setting(containerEl)
+        .setName("Cloud AI model")
+        .setDesc(
+          `Leave empty for the default (${DEFAULT_MODELS[this.plugin.settings.llmVendor]}). ` +
+            "Any vision-capable model id works — pick a cheaper one (e.g. claude-haiku-4-5) " +
+            "if cost matters more than accuracy.",
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder(DEFAULT_MODELS[this.plugin.settings.llmVendor])
+            .setValue(this.plugin.settings.llmModel)
+            .onChange(async (value) => {
+              this.plugin.settings.llmModel = value.trim();
+              await this.plugin.saveSettings();
+            }),
+        );
+
+      new Setting(containerEl)
+        .setName("Cloud AI API key")
+        .setDesc(
+          "Your own key for the selected vendor. Stored locally in this vault's plugin data " +
+            "and sent only to that vendor when you run recognition.",
+        )
+        .addText((text) => {
+          text.inputEl.type = "password";
+          text
+            .setPlaceholder("sk-…")
+            .setValue(this.plugin.settings.llmApiKey)
+            .onChange(async (value) => {
+              this.plugin.settings.llmApiKey = value.trim();
+              await this.plugin.saveSettings();
+            });
+        });
+
+      new Setting(containerEl)
+        .setName("Recognize automatically")
+        .setDesc(
+          "Run recognition in the background about 30 seconds after you stop writing, " +
+            "and only when the ink actually changed. Requires the one-time cloud consent " +
+            "(run it manually once first).",
+        )
+        .addToggle((toggle) =>
+          toggle.setValue(this.plugin.settings.autoRecognize).onChange(async (value) => {
+            this.plugin.settings.autoRecognize = value;
+            await this.plugin.saveSettings();
+          }),
+        );
+    }
+
+    if (!Platform.isMobileApp) this.displayTrocrSettings(containerEl);
 
     new Setting(containerEl).setName("Support and diagnostics").setHeading();
 
@@ -200,5 +306,51 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       text: "GitHub issues",
       href: "https://github.com/pcrausaz/obsidian-inkedmark/issues",
     });
+    support.appendText(" · ");
+    support.createEl("a", {
+      text: "Buy me a coffee",
+      href: "https://ko-fi.com/inkedmark",
+    });
+  }
+
+  /** On-device recognition settings (desktop only; mobile webviews can't run the models). */
+  private displayTrocrSettings(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("On-device recognition (experimental)")
+      .setDesc(
+        "Adds an offline recognizer (TrOCR) to the provider list. Your ink never leaves " +
+          "the device, but the first run downloads the model from Hugging Face. " +
+          "English handwriting only, and noticeably less accurate than Cloud AI — expect " +
+          "rough output on cursive. Desktop only.",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.experimentalTrocr).onChange(async (value) => {
+          this.plugin.settings.experimentalTrocr = value;
+          if (!value && this.plugin.settings.recognitionProviderId === TROCR_PROVIDER_ID) {
+            this.plugin.settings.recognitionProviderId = MANUAL_PROVIDER_ID;
+          }
+          await this.plugin.saveSettings();
+          this.display();
+        }),
+      );
+
+    if (this.plugin.settings.experimentalTrocr) {
+      new Setting(containerEl)
+        .setName("On-device model")
+        .setDesc(
+          "Each model downloads once and runs locally. Fast is the quickest and least " +
+            "accurate; Accurate is better but still below Cloud AI, and needs WebGPU " +
+            "(a large one-time download).",
+        )
+        .addDropdown((dropdown) => {
+          for (const [key, model] of Object.entries(TROCR_MODELS)) {
+            dropdown.addOption(key, model.label);
+          }
+          dropdown.setValue(this.plugin.settings.trocrModel).onChange(async (value) => {
+            this.plugin.settings.trocrModel = value as TrocrSize;
+            await this.plugin.saveSettings();
+          });
+        });
+    }
   }
 }

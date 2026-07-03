@@ -326,7 +326,9 @@ makes undo O(change), not O(document).
   is `.md` with frontmatter. No custom search index is built or needed in v1.
 
 This is the entire reason for the `.md`-based format: we inherit Obsidian's
-indexing instead of reimplementing it.
+indexing instead of reimplementing it. _Status: implemented by construction
+(0.3); the inheritance is verified on device via the "Search & graph
+integration" checklist in `QA.md` (1.0 release QA)._
 
 ---
 
@@ -586,6 +588,26 @@ obsidian-inkedmark/
     draw N strokes, measures the pointer-event delivery ratio (reusing the 0.1
     debug-HUD infra), and, if capture is low, nudges them to disable iPadOS
     Scribble. Doubles as the repeatable capture/latency check.
+- **0.6 — Recognition providers. ✅ shipped (1.0).** Decisions
+  (2026-07-02): cloud **LLM-BYOK first** (Anthropic/OpenAI/Google vision models,
+  user's own key — `recognition/llm.ts` + pure `llm-request.ts`/`render.ts`,
+  one-time off-device consent modal, transcription written into the managed
+  text section); **freemium** monetization — free = manual + BYOK (+ on-device
+  later), a hosted paid tier (Cloudflare Worker + license keys) only once BYOK
+  demand is proven; payments rail decided later. _Shipped since:_ OpenRouter as
+  a fourth BYOK vendor (OpenAI dialect — lets users A/B any vision model with
+  one key); recognition triggers (toolbar button, opt-in 30 s idle
+  auto-recognition) with stroke-content-hash change detection; on-device TrOCR
+  behind the "experimental" settings flag (`recognition/trocr.ts` +
+  pure `lines.ts` y-cluster line segmentation, transformers.js bundled,
+  WebGPU→WASM fallback). _On-device outcome:_ desktop-only — mobile webviews
+  can't run the models (WKWebView WebGPU broken; quantized exports rejected,
+  see the tracked issue; fp32 exceeds the mobile WASM heap), so mobile hides
+  the provider and falls back to manual. Models run fp32 (~250 MB small,
+  ~1.3 GB base/WebGPU-only), downloaded on first use; English, clearly below
+  Cloud AI in accuracy — positioned as the privacy/offline fallback. Cloud
+  BYOK is the quality path (verified: Opus transcribed a test page
+  flawlessly).
 
 ---
 

@@ -6,7 +6,7 @@
     <title>InkedMark — handwriting that lives in your Obsidian notes</title>
     <meta
       name="description"
-      content="Pressure-aware handwriting as a first-class block inside ordinary Obsidian markdown notes — searchable and graph-indexed like everything else in your vault."
+      content="Pressure-aware handwriting as a first-class block inside ordinary Obsidian markdown notes — searchable, graph-indexed, and transcribed to markdown by the AI of your choice (bring your own key)."
     />
     <link rel="icon" type="image/svg+xml" href="./assets/logo.svg" />
     <link rel="stylesheet" href="./styles.css" />
@@ -23,9 +23,17 @@
         <a class="button" href="https://github.com/pcrausaz/obsidian-inkedmark">View on GitHub</a>
         <a class="button button-ghost" href="#install">Install</a>
       </div>
-      <div class="hero-demo" aria-hidden="true">
-        <!-- Drop a demo GIF at assets/demo.gif -->
-        <img src="./assets/demo.gif" alt="" onerror="this.style.display = 'none'" />
+      <div class="hero-demo">
+        <video
+          src="./assets/demo.mp4"
+          poster="./assets/demo-poster.jpg"
+          controls
+          muted
+          playsinline
+          loop
+          preload="metadata"
+          style="max-width: 100%; border-radius: 12px"
+        ></video>
       </div>
     </header>
 
@@ -48,6 +56,16 @@
           </p>
         </article>
         <article>
+          <h2>AI transcription, your key</h2>
+          <p>
+            One tap turns a handwritten page into markdown in the text layer. Bring your own API key
+            — Anthropic, OpenAI, Google, or any vision model via OpenRouter — for a fraction of a
+            cent per page, after a one-time consent. Prefer to stay offline? Type the text layer
+            yourself, or try the experimental on-device recognizer (desktop). No account, no
+            subscription, no ink leaves your device without you saying so.
+          </p>
+        </article>
+        <article>
           <h2>Built for Apple Pencil</h2>
           <p>
             GoodNotes-class ink feel within the webview: pressure-variable strokes via
@@ -55,44 +73,6 @@
             low-latency rendering. Local-first, single-file, sync-friendly.
           </p>
         </article>
-      </section>
-
-      <section class="gallery">
-        <h2>See it in action</h2>
-        <div class="gallery-grid">
-          <figure>
-            <img
-              src="./assets/image_3.png"
-              alt="The InkedMark ink editor on iPad: toolbar with pen, highlighter, eraser and select tools, colored handwriting, and the text-layer panel"
-              loading="lazy"
-            />
-            <figcaption>
-              The ink editor — pen, highlighter, eraser, select, zoom, and the searchable text
-              layer.
-            </figcaption>
-          </figure>
-          <figure>
-            <img
-              src="./assets/image_1.png"
-              alt="A handwriting note embedded inside a regular markdown note, rendering its ink and transcription in reading mode"
-              loading="lazy"
-            />
-            <figcaption>
-              Ink notes embed in regular notes with <code>![[…]]</code> — handwriting and
-              transcription together.
-            </figcaption>
-          </figure>
-          <figure>
-            <img
-              src="./assets/image_2.png"
-              alt="The same note in editing mode, showing that everything stays plain markdown"
-              loading="lazy"
-            />
-            <figcaption>
-              Underneath it's all plain markdown — nothing proprietary in your vault.
-            </figcaption>
-          </figure>
-        </div>
       </section>
 
       <section id="install" class="install">
@@ -116,7 +96,8 @@
         <p>
           Questions or bug reports:
           <a href="mailto:support@inkedmark.com">support@inkedmark.com</a> or
-          <a href="https://github.com/pcrausaz/obsidian-inkedmark/issues">GitHub issues</a>.
+          <a href="https://github.com/pcrausaz/obsidian-inkedmark/issues">GitHub issues</a>. If
+          InkedMark is useful to you, <a href="https://ko-fi.com/inkedmark">buy me a coffee</a> ☕.
         </p>
       </section>
     </main>
@@ -125,6 +106,7 @@
       <p>
         MIT © 2026 <a href="https://liqpil.com">liqpil.com</a> ·
         <a href="mailto:support@inkedmark.com">support@inkedmark.com</a> ·
+        <a href="https://ko-fi.com/inkedmark">Ko-fi</a> ·
         <a href="https://github.com/pcrausaz/obsidian-inkedmark"
           >github.com/pcrausaz/obsidian-inkedmark</a
         >

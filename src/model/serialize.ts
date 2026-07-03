@@ -82,12 +82,15 @@ interface StoredDocument {
   version: number;
   view: ViewState;
   regions: StoredRegion[];
+  /** Optional metadata (additive; absent in older files). */
+  meta?: { recognizedHash?: string };
 }
 
 function toStored(doc: InkDocument): StoredDocument {
   return {
     version: SCHEMA_VERSION,
     view: doc.view,
+    ...(doc.recognizedHash ? { meta: { recognizedHash: doc.recognizedHash } } : {}),
     regions: doc.regions.map((region) => ({
       id: region.id,
       kind: region.kind,
@@ -167,10 +170,12 @@ function migrate(raw: unknown, _version: number, fallbackWidth: number): InkDocu
   const regionsRaw = Array.isArray(raw.regions) ? raw.regions : [];
   const regions = regionsRaw.map((r, i) => normalizeRegion(r, i));
   if (regions.length === 0) regions.push({ id: "r1", kind: "ink", strokes: [] });
+  const meta = isRecord(raw.meta) ? raw.meta : {};
   return {
     version: SCHEMA_VERSION,
     view: normalizeView(raw.view, fallbackWidth),
     regions,
+    ...(typeof meta.recognizedHash === "string" ? { recognizedHash: meta.recognizedHash } : {}),
   };
 }
 

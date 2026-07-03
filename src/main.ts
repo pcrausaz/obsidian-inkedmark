@@ -4,11 +4,18 @@ import {
   Notice,
   Platform,
   Plugin,
-  type TFile,
-  type WorkspaceLeaf,
+  TFile,
+  type ViewState,
+  WorkspaceLeaf,
   normalizePath,
 } from "obsidian";
-import { FRONTMATTER_FLAG, INK_FILE_SUFFIX, SCHEMA_VERSION, VIEW_TYPE_INK } from "./constants";
+import {
+  FRONTMATTER_FLAG,
+  INK_FILE_SUFFIX,
+  SCHEMA_VERSION,
+  TROCR_PROVIDER_ID,
+  VIEW_TYPE_INK,
+} from "./constants";
 import { DEFAULT_SETTINGS, InkedMarkSettingTab, type InkedMarkSettings } from "./settings";
 import { ICON_INK_NOTE, registerIcons } from "./icons";
 import { emptyDocument } from "./model/document";
@@ -16,6 +23,11 @@ import { buildInkFile, encodeDocument } from "./model/serialize";
 import { buildInlineBlock } from "./model/inline-block";
 import type { RecognitionProvider } from "./recognition/provider";
 import { createProviderRegistry, resolveProvider } from "./recognition/registry";
+import { MANUAL_PROVIDER_ID } from "./recognition/manual";
+import { LlmProvider } from "./recognition/llm";
+import { TrocrProvider } from "./recognition/trocr";
+import { VENDOR_LABELS } from "./recognition/llm-request";
+import { ConfirmModal } from "./ui/confirm-modal";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
 
@@ -32,14 +44,31 @@ export default class InkedMarkPlugin extends Plugin {
 
   /** The recognition provider selected in settings (manual in v1). */
   activeProvider(): RecognitionProvider {
-    return resolveProvider(this.providers, this.settings.recognitionProviderId);
+    // Synced settings can select the on-device provider on a device that can't
+    // run it (mobile webviews); fall back to manual there.
+    const id =
+      Platform.isMobileApp && this.settings.recognitionProviderId === TROCR_PROVIDER_ID
+        ? MANUAL_PROVIDER_ID
+        : this.settings.recognitionProviderId;
+    return resolveProvider(this.providers, id);
   }
 
   override async onload(): Promise<void> {
     await this.loadSettings();
     registerIcons();
 
+    const llm = new LlmProvider(() => ({
+      vendor: this.settings.llmVendor,
+      model: this.settings.llmModel,
+      apiKey: this.settings.llmApiKey,
+    }));
+    this.providers.set(llm.id, llm);
+
+    const trocr = new TrocrProvider(() => ({ size: this.settings.trocrModel }));
+    this.providers.set(trocr.id, trocr);
+
     this.registerView(VIEW_TYPE_INK, (leaf) => new InkView(leaf, this));
+    this.installViewStatePatch();
     registerInkEmbeds(this);
 
     this.addRibbonIcon(ICON_INK_NOTE, "Create handwriting note", () => {
@@ -89,7 +118,7 @@ export default class InkedMarkPlugin extends Plugin {
       name: "Recognize handwriting in this note",
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(InkView);
-        if (view && !checking) void view.recognize(this.activeProvider());
+        if (view && !checking) void this.runRecognition(view);
         return !!view;
       },
     });
@@ -168,6 +197,31 @@ export default class InkedMarkPlugin extends Plugin {
     );
   }
 
+  /**
+   * Run recognition on a view, asking for one-time consent before the first
+   * cloud call (cloud providers send a rendered image of the ink off-device).
+   * Background (`auto`) runs never prompt — without consent they just skip.
+   */
+  async runRecognition(view: InkView, auto = false): Promise<void> {
+    const provider = this.activeProvider();
+    if (provider.requiresNetwork && !this.settings.cloudConsentGiven) {
+      if (auto) return;
+      const vendor = VENDOR_LABELS[this.settings.llmVendor];
+      const confirmed = await ConfirmModal.confirm(this.app, {
+        title: "Send handwriting to a cloud service?",
+        message:
+          `Cloud recognition renders this note's ink into an image and sends it to ${vendor} ` +
+          "using your API key. The ink leaves your device for that request only. " +
+          "This choice is remembered; the manual provider never uses the network.",
+        cta: "Send",
+      });
+      if (!confirmed) return;
+      this.settings.cloudConsentGiven = true;
+      await this.saveSettings();
+    }
+    await view.recognize(provider, auto);
+  }
+
   /** Turn the input debug overlay on/off everywhere (settings toggle + command). */
   async setDebugHud(enabled: boolean, notify = false): Promise<void> {
     this.settings.debugHud = enabled;
@@ -183,6 +237,40 @@ export default class InkedMarkPlugin extends Plugin {
   }
 
   // --- Ink-file detection & view switching ----------------------------------
+
+  /**
+   * Intercept `WorkspaceLeaf.setViewState` so an ink file *instantiates* as the
+   * ink view instead of being opened as markdown and flipped afterwards. The
+   * after-the-fact flip (on layout-change) fought Obsidian's navigation history:
+   * pressing Back landed on the intermediate markdown state, which we instantly
+   * flipped again — eating the Back press. Patching at the state level means no
+   * markdown state ever enters history. Same approach as Kanban/Excalidraw;
+   * the original method is restored on unload.
+   */
+  private installViewStatePatch(): void {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const plugin = this;
+    const original = WorkspaceLeaf.prototype.setViewState;
+    WorkspaceLeaf.prototype.setViewState = function (
+      this: WorkspaceLeaf,
+      viewState: ViewState,
+      eState?: unknown,
+    ) {
+      if (viewState.type === "markdown") {
+        const path = (viewState.state as Record<string, unknown> | undefined)?.file;
+        if (typeof path === "string" && !plugin.markdownOverride.has(path)) {
+          const file = plugin.app.vault.getAbstractFileByPath(path);
+          if (file instanceof TFile && plugin.isInkFile(file)) {
+            viewState = { ...viewState, type: VIEW_TYPE_INK };
+          }
+        }
+      }
+      return original.call(this, viewState, eState);
+    };
+    this.register(() => {
+      WorkspaceLeaf.prototype.setViewState = original;
+    });
+  }
 
   isInkFile(file: TFile): boolean {
     if (file.extension !== "md") return false;

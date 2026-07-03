@@ -64,3 +64,26 @@ export const DEFAULT_HIGHLIGHTER_ALPHA = 0.4;
 
 /** Eraser hit radius in screen px (converted to world via the viewport scale). */
 export const ERASER_RADIUS = 12;
+
+/** Idle delay before auto-recognition fires after the last ink change. */
+export const AUTO_RECOGNIZE_IDLE_MS = 30_000;
+
+/** Provider id of the experimental on-device recognizer. */
+export const TROCR_PROVIDER_ID = "trocr-local";
+
+/** On-device recognizer models (English, line-level). fp32 only: the q8
+ * exports of these models are rejected by the on-device ONNX stack (QDQ
+ * transform error) even though they load in isolation - revisit if the
+ * exports or onnxruntime-web are updated. */
+export const TROCR_MODELS = {
+  small: {
+    id: "Xenova/trocr-small-handwritten",
+    label: "Fast — small model (~250 MB)",
+  },
+  base: {
+    id: "Xenova/trocr-base-handwritten",
+    label: "Accurate — base model (~1.3 GB, desktop/WebGPU only)",
+  },
+} as const;
+
+export type TrocrSize = keyof typeof TROCR_MODELS;

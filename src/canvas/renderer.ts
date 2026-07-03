@@ -12,6 +12,7 @@
  */
 
 import { DEFAULT_HIGHLIGHTER_ALPHA } from "../constants";
+import { resolveInkColor } from "./ink-color";
 import { type FreehandOptions, outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
 import {
   type Bounds,
@@ -41,6 +42,8 @@ function get2dContext(
 export class Renderer {
   /** Highlighter opacity (0..1); overridable from settings. */
   highlighterAlpha = DEFAULT_HIGHLIGHTER_ALPHA;
+  /** Paper theme; monochrome ink adapts to it (see canvas/ink-color.ts). */
+  darkTheme = false;
   private readonly dryCtx: CanvasRenderingContext2D;
   private readonly wetCtx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -121,7 +124,7 @@ export class Renderer {
       ctx.globalAlpha = this.highlighterAlpha;
       ctx.globalCompositeOperation = "multiply";
     }
-    ctx.fillStyle = style.color;
+    ctx.fillStyle = resolveInkColor(style.color, this.darkTheme);
     ctx.fill(new Path2D(path));
     ctx.restore();
   }

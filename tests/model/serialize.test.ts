@@ -66,6 +66,15 @@ describe("document payload", () => {
     const decoded = decodeDocument(encodeDocument(makeDoc([hl])));
     expect(decoded.regions[0].strokes[0].tool).toBe("highlighter");
   });
+
+  it("round-trips the recognizedHash and omits it when absent", () => {
+    const doc = makeDoc([sampleStroke]);
+    doc.recognizedHash = "abc123";
+    expect(decodeDocument(encodeDocument(doc)).recognizedHash).toBe("abc123");
+
+    const bare = makeDoc([sampleStroke]);
+    expect(decodeDocument(encodeDocument(bare)).recognizedHash).toBeUndefined();
+  });
 });
 
 describe("decode error handling", () => {

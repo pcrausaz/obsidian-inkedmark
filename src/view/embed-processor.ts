@@ -19,6 +19,7 @@ import {
   type TFile,
 } from "obsidian";
 import { DEFAULT_HIGHLIGHTER_ALPHA, INK_FILE_SUFFIX } from "../constants";
+import { resolveInkColor } from "../canvas/ink-color";
 import { outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
 import { type Bounds, type InkDocument, documentBounds } from "../model/document";
 import { parseInlineBlock } from "../model/inline-block";
@@ -149,7 +150,7 @@ function drawStatic(container: HTMLElement, doc: InkDocument, bounds: Bounds): v
         ctx.globalAlpha = DEFAULT_HIGHLIGHTER_ALPHA;
         ctx.globalCompositeOperation = "multiply";
       }
-      ctx.fillStyle = stroke.color;
+      ctx.fillStyle = resolveInkColor(stroke.color, document.body.classList.contains("theme-dark"));
       ctx.fill(new Path2D(path));
       ctx.restore();
     }

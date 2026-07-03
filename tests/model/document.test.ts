@@ -8,6 +8,7 @@ import {
   primaryRegion,
   strokeBounds,
   strokeCount,
+  strokesContentHash,
 } from "../../src/model/document";
 
 function stroke(id: string, pts: number[]): Stroke {
@@ -63,6 +64,29 @@ describe("document", () => {
     const doc = emptyDocument();
     doc.regions[0].strokes.push(stroke("s1", [0, 0, 1]), stroke("s2", [1, 1, 1]));
     expect(strokeCount(doc)).toBe(2);
+  });
+
+  it("strokesContentHash is stable for identical content", () => {
+    const a = emptyDocument();
+    const b = emptyDocument();
+    a.regions[0].strokes.push(stroke("s1", [1, 2, 0.5]));
+    b.regions[0].strokes.push(stroke("s1", [1, 2, 0.5]));
+    expect(strokesContentHash(a)).toBe(strokesContentHash(b));
+  });
+
+  it("strokesContentHash changes when a stroke moves or is added", () => {
+    const doc = emptyDocument();
+    doc.regions[0].strokes.push(stroke("s1", [1, 2, 0.5]));
+    const before = strokesContentHash(doc);
+    doc.regions[0].strokes[0].pts[0] += 5;
+    const moved = strokesContentHash(doc);
+    expect(moved).not.toBe(before);
+    doc.regions[0].strokes.push(stroke("s2", [9, 9, 1]));
+    expect(strokesContentHash(doc)).not.toBe(moved);
+  });
+
+  it("strokesContentHash of an empty document is stable", () => {
+    expect(strokesContentHash(emptyDocument())).toBe(strokesContentHash(emptyDocument()));
   });
 
   it("primaryRegion repairs a document with no regions", () => {

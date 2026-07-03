@@ -19,6 +19,8 @@
 
 import { Notice, TextFileView, type WorkspaceLeaf } from "obsidian";
 import {
+  AUTO_RECOGNIZE_IDLE_MS,
+  BLOCK_LABEL,
   BUILD_ID,
   DEFAULT_PAPER_HEIGHT,
   ERASER_RADIUS,
@@ -50,12 +52,15 @@ import {
   primaryRegion,
   strokeBounds,
   strokeCount,
+  strokesContentHash,
 } from "../model/document";
 import { AddStroke, ClearRegion, MoveStrokes, RemoveStrokes } from "../model/commands";
 import { History } from "../model/history";
 import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize";
 import type { RecognitionProvider } from "../recognition/provider";
-import { writeTextSection } from "../recognition/text-layer";
+import { MANUAL_PROVIDER_ID } from "../recognition/manual";
+import { providerLabel } from "../recognition/registry";
+import { readTextSection, writeTextSection } from "../recognition/text-layer";
 import {
   PointerController,
   type PointerControllerCallbacks,
@@ -142,6 +147,15 @@ export class InkView extends TextFileView {
   private wetFrame = 0;
   private pendingPredicted: PointerSample[] = [];
 
+  // Auto-recognition idle timer (opt-in setting).
+  private autoRecognizeTimer = 0;
+
+  // Bounded retry for layout() when the leaf has no size yet (first open).
+  private layoutRetries = 0;
+
+  /** Original file bytes when the last load was suspect; saves echo these. */
+  private protectedRaw: string | null = null;
+
   // Diagnostic HUD state (toggled via command / settings).
   private debug: boolean;
   private hudEl: HTMLElement | null = null;
@@ -194,11 +208,28 @@ export class InkView extends TextFileView {
   // --- TextFileView persistence ---------------------------------------------
 
   getViewData(): string {
+    // Data-safety: when the last load looked wrong (an empty read of a
+    // non-empty file, or a data block we couldn't decode), never rebuild the
+    // file - echo the original bytes back so a save cannot wipe ink we failed
+    // to parse. iCloud "dataless" placeholders and partial syncs are the
+    // realistic triggers for both cases.
+    if (this.protectedRaw !== null) return this.protectedRaw;
     return buildInkFile(this.bodyText, this.doc);
   }
 
   setViewData(data: string, _clear: boolean): void {
     const parsed = parseInkFile(data, this.plugin.settings.paperWidth);
+    const emptyReadOfRealFile = data.trim().length === 0 && (this.file?.stat.size ?? 0) > 0;
+    const unreadableBlock = parsed.doc === null && data.includes(`%%${BLOCK_LABEL}`);
+    this.protectedRaw = emptyReadOfRealFile || unreadableBlock ? data : null;
+    if (this.protectedRaw !== null) {
+      new Notice(
+        "InkedMark: couldn't read this note's ink data (incomplete sync?). " +
+          "The note is protected until it loads cleanly - your ink on disk is safe. " +
+          "Reopen it once the file has fully synced.",
+        10000,
+      );
+    }
     this.bodyText = parsed.body;
     this.doc = parsed.doc ?? emptyDocument(this.plugin.settings.paperWidth);
     this.strokeSeq = maxStrokeId(this.doc);
@@ -248,6 +279,7 @@ export class InkView extends TextFileView {
     if (this.dryFrame) cancelAnimationFrame(this.dryFrame);
     if (this.hudFrame) cancelAnimationFrame(this.hudFrame);
     if (this.wetFrame) cancelAnimationFrame(this.wetFrame);
+    window.clearTimeout(this.autoRecognizeTimer);
     this.pointer?.detach();
     this.resizeObserver?.disconnect();
     this.toolbar?.destroy();
@@ -278,23 +310,80 @@ export class InkView extends TextFileView {
 
   /**
    * Run a recognition provider over this note's strokes and merge any recognized
-   * text into the body's managed text section. The manual provider is a no-op.
+   * text into the body's managed text section. Skipped when the ink hasn't
+   * changed since the last run (content hash), so repeated/automatic triggers
+   * don't burn API calls or churn good text. An empty page clears the managed
+   * section (the user's own prose is untouched). `auto` mutes the chatty notices.
    */
-  async recognize(provider: RecognitionProvider): Promise<void> {
-    const strokes = primaryRegion(this.doc).strokes;
-    if (strokes.length === 0) {
-      new Notice("InkedMark: nothing to recognize yet.");
+  async recognize(provider: RecognitionProvider, auto = false): Promise<void> {
+    if (this.protectedRaw !== null) {
+      if (!auto) {
+        new Notice("InkedMark: this note is protected until its ink data loads cleanly.");
+      }
       return;
     }
-    const result = await provider.recognize({ strokes });
-    if (result.text.trim()) {
-      this.bodyText = writeTextSection(this.bodyText, result.text);
-      this.syncPanelFromBody();
-      this.requestSave();
-      new Notice(`InkedMark: recognized ${strokes.length} strokes into the text layer.`);
-    } else {
-      new Notice("InkedMark: manual transcription — type it in the text-layer panel (⌸).");
+    const strokes = primaryRegion(this.doc).strokes;
+    const hash = strokesContentHash(this.doc);
+
+    if (strokes.length === 0) {
+      if (readTextSection(this.bodyText) !== null) {
+        this.bodyText = writeTextSection(this.bodyText, "");
+        this.syncPanelFromBody();
+        this.doc.recognizedHash = hash;
+        this.requestSave();
+        if (!auto) new Notice("InkedMark: page is empty — cleared the transcription.");
+      } else if (!auto) {
+        new Notice("InkedMark: nothing to recognize yet.");
+      }
+      return;
     }
+
+    if (provider.requiresNetwork && this.doc.recognizedHash === hash) {
+      if (!auto) new Notice("InkedMark: transcription is already up to date.");
+      return;
+    }
+
+    const progress =
+      provider.id === MANUAL_PROVIDER_ID
+        ? null
+        : new Notice("InkedMark: recognizing handwriting…", 0);
+    try {
+      const result = await provider.recognize({
+        strokes,
+        onProgress: (message) => progress?.setMessage(`InkedMark: ${message}`),
+      });
+      if (result.text.trim()) {
+        this.bodyText = writeTextSection(this.bodyText, result.text);
+        this.syncPanelFromBody();
+        this.doc.recognizedHash = hash;
+        if (!auto && !this.showTextPanel) this.toggleTextPanel();
+        this.requestSave();
+        new Notice("InkedMark: transcription added to the text layer — review and edit it.");
+      } else if (!auto) {
+        new Notice("InkedMark: manual transcription — type it in the text-layer panel.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(`InkedMark recognition failed: ${message}`, 8000);
+    } finally {
+      progress?.hide();
+    }
+  }
+
+  /**
+   * Debounced background recognition: fires once the ink has been idle for a
+   * while. Opt-in, and never prompts — it only runs for a network provider the
+   * user has already consented to. The content-hash check in `recognize` makes
+   * redundant fires free.
+   */
+  private scheduleAutoRecognize(): void {
+    window.clearTimeout(this.autoRecognizeTimer);
+    if (!this.plugin.settings.autoRecognize) return;
+    if (!this.plugin.settings.cloudConsentGiven) return;
+    if (!this.plugin.activeProvider().requiresNetwork) return;
+    this.autoRecognizeTimer = window.setTimeout(() => {
+      void this.plugin.runRecognition(this, true);
+    }, AUTO_RECOGNIZE_IDLE_MS);
   }
 
   /** Show/hide the text-layer panel (searchable markdown body). */
@@ -345,6 +434,7 @@ export class InkView extends TextFileView {
       onZoomOut: () => this.zoomOut(),
       onZoomReset: () => this.resetView(),
       onToggleText: () => this.toggleTextPanel(),
+      onRecognize: () => void this.plugin.runRecognition(this),
     });
 
     this.surfaceEl = root.createDiv({ cls: "inkedmark-surface" });
@@ -384,6 +474,7 @@ export class InkView extends TextFileView {
       this.plugin.settings.desynchronizedCanvas,
     );
     this.renderer.highlighterAlpha = this.plugin.settings.highlighterAlpha;
+    this.renderer.darkTheme = document.body.classList.contains("theme-dark");
 
     this.pointer = new PointerController(
       this.scrollEl,
@@ -393,6 +484,15 @@ export class InkView extends TextFileView {
     this.pointer.attach();
 
     this.registerDomEvent(this.scrollEl, "scroll", () => this.onScroll());
+    // Repaint when the theme flips so monochrome ink re-adapts to the paper.
+    this.registerEvent(
+      this.app.workspace.on("css-change", () => {
+        if (this.renderer) {
+          this.renderer.darkTheme = document.body.classList.contains("theme-dark");
+          this.renderDry();
+        }
+      }),
+    );
     this.registerDomEvent(this.contentEl, "keydown", (e) => this.onKeyDown(e));
 
     this.resizeObserver = new ResizeObserver(() => this.layout());
@@ -403,8 +503,14 @@ export class InkView extends TextFileView {
 
   /** Toolbar readout: build id + live committed-stroke count + zoom (a testing aid). */
   private updateStatus(): void {
+    const engine = providerLabel(this.plugin.settings.recognitionProviderId);
+    this.toolbar?.setRecognizeLabel(`Recognize handwriting — ${engine}`);
+    const debugSuffix = this.debug ? ` · ${engine}` : "";
+    const guard = this.protectedRaw !== null ? " · ⚠ protected (sync)" : "";
     this.toolbar?.setStatus(
-      `${this.buildLabel} · ${strokeCount(this.doc)} strokes · ${Math.round(this.scale * 100)}%`,
+      `${this.buildLabel} · ${strokeCount(this.doc)} strokes · ${Math.round(this.scale * 100)}%` +
+        debugSuffix +
+        guard,
     );
   }
 
@@ -414,7 +520,17 @@ export class InkView extends TextFileView {
     if (!this.renderer) return;
     const cssW = this.surfaceEl.clientWidth;
     const cssH = this.surfaceEl.clientHeight;
-    if (cssW === 0 || cssH === 0) return;
+    if (cssW === 0 || cssH === 0) {
+      // First-open race: the leaf may not be attached/measured yet when the
+      // view initializes (a blank canvas until something re-triggers layout).
+      // Retry briefly; the ResizeObserver covers anything slower than this.
+      if (this.layoutRetries < 60) {
+        this.layoutRetries++;
+        requestAnimationFrame(() => this.layout());
+      }
+      return;
+    }
+    this.layoutRetries = 0;
 
     // The roll's world width fits the surface at scale 1; zoom scales the visuals.
     this.paperWorldWidth = Math.min(this.plugin.settings.paperWidth, cssW);
@@ -537,6 +653,10 @@ export class InkView extends TextFileView {
 
   private readonly pointerCallbacks: PointerControllerCallbacks = {
     onStart: (sample) => {
+      if (this.protectedRaw !== null) {
+        new Notice("InkedMark: this note is protected until its ink data loads cleanly.");
+        return;
+      }
       if (this.toolState.tool === "eraser") {
         this.eraseIds = new Set();
         this.eraseAt(sample);
@@ -728,6 +848,7 @@ export class InkView extends TextFileView {
     this.ensurePaperSize();
     this.renderer?.appendCommittedStroke(stroke, this.toolState.pressureEnabled);
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -760,6 +881,7 @@ export class InkView extends TextFileView {
     }
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -874,6 +996,7 @@ export class InkView extends TextFileView {
     }
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -888,6 +1011,7 @@ export class InkView extends TextFileView {
     this.rebuildIndex();
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -896,6 +1020,7 @@ export class InkView extends TextFileView {
     this.rebuildIndex();
     this.renderDry();
     this.updateStatus();
+    this.scheduleAutoRecognize();
     this.requestSave();
   }
 
@@ -905,6 +1030,14 @@ export class InkView extends TextFileView {
     this.history.push(this.doc, new ClearRegion());
     this.index.clear();
     this.strokeById.clear();
+    // The auto-transcription mirrors the ink; clearing the page clears it too.
+    // (User prose outside the managed section is untouched. Undo restores the
+    // strokes but not the transcription - re-run recognition to regenerate it.)
+    if (readTextSection(this.bodyText) !== null) {
+      this.bodyText = writeTextSection(this.bodyText, "");
+      this.syncPanelFromBody();
+    }
+    this.doc.recognizedHash = undefined;
     this.renderDry();
     this.updateStatus();
     this.requestSave();

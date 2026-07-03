@@ -7,6 +7,12 @@
 > Handwriting that lives inside your notes — pressure-aware ink, fused with
 > markdown, searchable and graphable like everything else in your vault.
 
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Handwriting a quote in InkedMark, then recognition adds it to the searchable text layer" width="680" />
+  <br />
+  <em>Write by hand, hit recognize, and the transcription lands in the note's searchable text layer — <a href="https://inkedmark.com">full demo on inkedmark.com</a>.</em>
+</p>
+
 InkedMark makes handwriting a **first-class block inside ordinary markdown
 notes**. You write by hand where handwriting is better (diagrams, math,
 marginalia, fast capture) and type where typing is better — in the _same note_ —
@@ -50,9 +56,50 @@ count, and zoom.
 - **Insert inline handwriting** — inserts a starter ` ```inkedmark ` block.
 - **Toggle canvas / markdown view** — see the raw markdown of an ink note.
 - **Toggle text layer panel** — open the transcription panel.
-- **Recognize handwriting in this note** — runs the recognition provider
-  (v1 ships manual transcription; automatic HWR is a future provider).
+- **Recognize handwriting in this note** — runs the selected recognition
+  provider (see below).
 - **Zoom in / Zoom out / Fit / reset view**, **Toggle input debug overlay**.
+
+### Handwriting recognition
+
+Three providers (Settings → Handwriting recognition):
+
+- **Manual** (default) — you type the transcription in the text-layer panel.
+  Never uses the network.
+- **Cloud AI (bring your own key)** — renders the note's ink to an image and
+  asks a vision model for a markdown transcription, which lands in a clearly
+  marked section of the text layer for you to review and edit. Supports
+  Anthropic (Claude), OpenAI (GPT), and Google (Gemini); you pick the vendor
+  and model and paste **your own API key**. Typical cost is a fraction of a
+  cent per page. The **OpenRouter** vendor lets you try any vision model on
+  the market (e.g. `google/gemini-2.5-flash`, `anthropic/claude-haiku-4.5`)
+  with a single key.
+
+- **On-device (experimental, desktop only)** — an offline TrOCR model
+  transcribes the ink line-by-line, entirely on your machine. Enable it under
+  _On-device recognition (experimental)_ in settings. First run downloads the
+  model from Hugging Face (~250 MB Fast / ~1.3 GB Accurate; cached
+  afterwards). English handwriting only, and noticeably less accurate than
+  Cloud AI — treat it as the privacy/offline fallback, not the quality path.
+  Mobile webviews can't run the models, so it is desktop only.
+
+Run it from the toolbar's **scan button**, the command palette, or turn on
+**Recognize automatically** in settings to have it run in the background
+~30 seconds after you stop writing. Recognition is skipped when the ink hasn't
+changed since the last run, and clearing the page clears the transcription
+section too (your own prose in the text layer is never touched).
+
+#### Network use disclosure
+
+InkedMark makes network requests **only** for recognition, and only in two
+cases: (1) _Cloud AI_ sends a rendered PNG of the current note's ink to your
+chosen vendor (Anthropic, OpenAI, Google, or OpenRouter) using your API key,
+after a one-time confirmation; (2) the experimental _on-device_ provider
+downloads its model from the Hugging Face CDN (and the ONNX runtime from
+jsDelivr) on first use — **your ink never leaves the device** with that
+provider. Nothing else is ever transmitted — no telemetry, no analytics, and
+the manual provider works fully offline. Your API key is stored locally in the
+vault's plugin data (`data.json`).
 
 ### The text layer (search & graph)
 
@@ -114,6 +161,7 @@ one-time reminder and a settings note on iPad.
 - **Bugs & feature requests:**
   [GitHub issues](https://github.com/pcrausaz/obsidian-inkedmark/issues)
 - **Website:** [inkedmark.com](https://inkedmark.com)
+- **If InkedMark is useful to you:** [buy me a coffee](https://ko-fi.com/inkedmark) ☕
 
 ## Development
 
@@ -129,7 +177,7 @@ npm run build        # typecheck + production bundle
 The build emits `main.js`; together with `manifest.json` and `styles.css` it
 forms the Obsidian plugin. See [`SPECIFICATION.md`](./SPECIFICATION.md) for the
 technical brief, [`QA.md`](./QA.md) for the on-device test pass,
-[`KNOWN-ISSUES.md`](./KNOWN-ISSUES.md) for tracked bugs, and
+[GitHub issues](https://github.com/pcrausaz/obsidian-inkedmark/issues) for tracked bugs, and
 [`RELEASE.md`](./RELEASE.md) for the release flow.
 
 ### Deploying to a test vault (incl. iPad via iCloud)

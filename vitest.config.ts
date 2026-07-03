@@ -15,10 +15,13 @@ export default defineConfig({
         "src/canvas/hit-test.ts",
         "src/canvas/spatial-index.ts",
         "src/canvas/zoom.ts",
+        "src/canvas/ink-color.ts",
         "src/input/palm-rejection.ts",
         "src/recognition/text-layer.ts",
         "src/recognition/registry.ts",
         "src/recognition/manual.ts",
+        "src/recognition/llm-request.ts",
+        "src/recognition/lines.ts",
       ],
       thresholds: {
         lines: 80,
