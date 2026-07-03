@@ -89,9 +89,9 @@ export class TrocrProvider implements RecognitionProvider {
    * the web/WASM backend instead; the mask is restored immediately after.
    */
   private async importTransformers(): Promise<TransformersModule> {
-    const g = globalThis as { process?: unknown };
+    const g = window as unknown as { process?: unknown };
     const original = g.process;
-    const mask = typeof window !== "undefined" && original !== undefined;
+    const mask = original !== undefined;
     if (mask) g.process = undefined;
     try {
       return (await import("@huggingface/transformers")) as unknown as TransformersModule;

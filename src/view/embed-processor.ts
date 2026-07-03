@@ -132,9 +132,7 @@ function drawStatic(container: HTMLElement, doc: InkDocument, bounds: Bounds): v
   const canvas = container.createEl("canvas", { cls: "inkedmark-embed-canvas" });
   canvas.width = Math.max(1, Math.round(worldW * dpr));
   canvas.height = Math.max(1, Math.round(worldH * dpr));
-  canvas.style.width = `${Math.round(worldW)}px`;
-  canvas.style.maxWidth = "100%";
-  canvas.style.height = "auto";
+  canvas.setCssStyles({ width: `${Math.round(worldW)}px` });
 
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -150,7 +148,10 @@ function drawStatic(container: HTMLElement, doc: InkDocument, bounds: Bounds): v
         ctx.globalAlpha = DEFAULT_HIGHLIGHTER_ALPHA;
         ctx.globalCompositeOperation = "multiply";
       }
-      ctx.fillStyle = resolveInkColor(stroke.color, document.body.classList.contains("theme-dark"));
+      ctx.fillStyle = resolveInkColor(
+        stroke.color,
+        activeDocument.body.classList.contains("theme-dark"),
+      );
       ctx.fill(new Path2D(path));
       ctx.restore();
     }

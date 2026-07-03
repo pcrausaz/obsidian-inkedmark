@@ -68,7 +68,7 @@ export class Renderer {
     // stroke is in progress. A desynchronized canvas can fail to clear to
     // transparent on iOS WebKit; hiding it when idle guarantees it never masks
     // committed ink on the dry layer below.
-    this.wet.style.visibility = "hidden";
+    this.wet.classList.add("inkedmark-wet-hidden");
   }
 
   /** Resize both backing stores to the visible viewport at the given DPR. */
@@ -187,7 +187,7 @@ export class Renderer {
     );
     this.wetCtx.restore();
     this.strokeRect(this.wetCtx, bounds, 0);
-    this.wet.style.visibility = "visible";
+    this.wet.classList.remove("inkedmark-wet-hidden");
   }
 
   /**
@@ -207,13 +207,13 @@ export class Renderer {
     this.clear(this.wetCtx);
     this.applyTransform(this.wetCtx);
     this.fillStroke(this.wetCtx, pts, style, false);
-    this.wet.style.visibility = "visible";
+    this.wet.classList.remove("inkedmark-wet-hidden");
   }
 
   /** Clear the wet layer and hide it so it cannot mask the dry layer. */
   clearWet(): void {
     this.clear(this.wetCtx);
-    this.wet.style.visibility = "hidden";
+    this.wet.classList.add("inkedmark-wet-hidden");
   }
 }
 

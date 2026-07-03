@@ -171,7 +171,8 @@ export default class InkedMarkPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = (await this.loadData()) as Partial<InkedMarkSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
   }
 
   async saveSettings(): Promise<void> {
@@ -248,8 +249,9 @@ export default class InkedMarkPlugin extends Plugin {
    * the original method is restored on unload.
    */
   private installViewStatePatch(): void {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the patched function needs the leaf's `this` AND the plugin instance
     const plugin = this;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- captured to delegate via .call(leaf, ...) and to restore on unload
     const original = WorkspaceLeaf.prototype.setViewState;
     WorkspaceLeaf.prototype.setViewState = function (
       this: WorkspaceLeaf,
@@ -257,7 +259,7 @@ export default class InkedMarkPlugin extends Plugin {
       eState?: unknown,
     ) {
       if (viewState.type === "markdown") {
-        const path = (viewState.state as Record<string, unknown> | undefined)?.file;
+        const path = viewState.state?.file;
         if (typeof path === "string" && !plugin.markdownOverride.has(path)) {
           const file = plugin.app.vault.getAbstractFileByPath(path);
           if (file instanceof TFile && plugin.isInkFile(file)) {
@@ -333,7 +335,7 @@ export default class InkedMarkPlugin extends Plugin {
     const file = await this.app.vault.create(path, content);
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.setViewState({ type: VIEW_TYPE_INK, state: { file: file.path }, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    await this.app.workspace.revealLeaf(leaf);
   }
 
   private async uniqueInkPath(): Promise<string> {

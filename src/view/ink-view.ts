@@ -276,9 +276,9 @@ export class InkView extends TextFileView {
   }
 
   override async onClose(): Promise<void> {
-    if (this.dryFrame) cancelAnimationFrame(this.dryFrame);
-    if (this.hudFrame) cancelAnimationFrame(this.hudFrame);
-    if (this.wetFrame) cancelAnimationFrame(this.wetFrame);
+    if (this.dryFrame) window.cancelAnimationFrame(this.dryFrame);
+    if (this.hudFrame) window.cancelAnimationFrame(this.hudFrame);
+    if (this.wetFrame) window.cancelAnimationFrame(this.wetFrame);
     window.clearTimeout(this.autoRecognizeTimer);
     this.pointer?.detach();
     this.resizeObserver?.disconnect();
@@ -407,7 +407,10 @@ export class InkView extends TextFileView {
 
     // Factory-default ink is near-black; on a dark theme that is invisible, so
     // start with white when the user hasn't chosen a custom default color.
-    if (this.toolState.color === PALETTE[0] && document.body.classList.contains("theme-dark")) {
+    if (
+      this.toolState.color === PALETTE[0] &&
+      activeDocument.body.classList.contains("theme-dark")
+    ) {
       this.toolState.color = PALETTE[1];
     }
 
@@ -474,7 +477,7 @@ export class InkView extends TextFileView {
       this.plugin.settings.desynchronizedCanvas,
     );
     this.renderer.highlighterAlpha = this.plugin.settings.highlighterAlpha;
-    this.renderer.darkTheme = document.body.classList.contains("theme-dark");
+    this.renderer.darkTheme = activeDocument.body.classList.contains("theme-dark");
 
     this.pointer = new PointerController(
       this.scrollEl,
@@ -488,7 +491,7 @@ export class InkView extends TextFileView {
     this.registerEvent(
       this.app.workspace.on("css-change", () => {
         if (this.renderer) {
-          this.renderer.darkTheme = document.body.classList.contains("theme-dark");
+          this.renderer.darkTheme = activeDocument.body.classList.contains("theme-dark");
           this.renderDry();
         }
       }),
@@ -526,7 +529,7 @@ export class InkView extends TextFileView {
       // Retry briefly; the ResizeObserver covers anything slower than this.
       if (this.layoutRetries < 60) {
         this.layoutRetries++;
-        requestAnimationFrame(() => this.layout());
+        window.requestAnimationFrame(() => this.layout());
       }
       return;
     }
@@ -548,9 +551,10 @@ export class InkView extends TextFileView {
     const contentBottom = bounds ? bounds.maxY + PAPER_GROWTH_MARGIN : 0;
     const surfaceH = this.surfaceEl.clientHeight;
     const worldHeight = Math.max(DEFAULT_PAPER_HEIGHT, contentBottom, surfaceH / this.scale);
-    this.paperEl.style.width = `${Math.ceil(this.paperWorldWidth * this.scale)}px`;
-    this.paperEl.style.height = `${Math.ceil(worldHeight * this.scale)}px`;
-    this.paperEl.style.margin = "0 auto";
+    this.paperEl.setCssStyles({
+      width: `${Math.ceil(this.paperWorldWidth * this.scale)}px`,
+      height: `${Math.ceil(worldHeight * this.scale)}px`,
+    });
   }
 
   /** Derive scroll/offset (world) from the live paper vs surface rects. */
@@ -593,7 +597,7 @@ export class InkView extends TextFileView {
 
   private scheduleDry(): void {
     if (this.dryFrame) return;
-    this.dryFrame = requestAnimationFrame(() => {
+    this.dryFrame = window.requestAnimationFrame(() => {
       this.dryFrame = 0;
       this.renderDry();
     });
@@ -788,7 +792,7 @@ export class InkView extends TextFileView {
 
   private scheduleHud(): void {
     if (this.hudFrame) return;
-    this.hudFrame = requestAnimationFrame(() => {
+    this.hudFrame = window.requestAnimationFrame(() => {
       this.hudFrame = 0;
       this.renderHud();
     });
@@ -807,7 +811,7 @@ export class InkView extends TextFileView {
 
   private scheduleWet(): void {
     if (this.wetFrame || !this.builder) return;
-    this.wetFrame = requestAnimationFrame(() => {
+    this.wetFrame = window.requestAnimationFrame(() => {
       this.wetFrame = 0;
       if (!this.builder) return;
       const pts = this.builder.points();
@@ -820,7 +824,7 @@ export class InkView extends TextFileView {
 
   private finishStroke(final: PointerSample | null): void {
     if (this.wetFrame) {
-      cancelAnimationFrame(this.wetFrame);
+      window.cancelAnimationFrame(this.wetFrame);
       this.wetFrame = 0;
     }
     const builder = this.builder;

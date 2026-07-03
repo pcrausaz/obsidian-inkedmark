@@ -211,5 +211,16 @@
 
 .inkedmark-paper {
   position: relative;
+  margin: 0 auto;
   pointer-events: none;
+}
+
+/* Wet layer hidden while idle (renderer toggles the class, not inline styles). */
+.inkedmark-wet-hidden {
+  visibility: hidden;
+}
+
+.inkedmark-embed-canvas {
+  max-width: 100%;
+  height: auto;
 }

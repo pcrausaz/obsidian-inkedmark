@@ -4,6 +4,11 @@ import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
   {
+    // Obsidian's plugin-review scanner lints type-aware (e.g. unbound-method);
+    // some disable directives exist for its rules and are "unused" locally.
+    linterOptions: { reportUnusedDisableDirectives: "off" },
+  },
+  {
     ignores: ["main.js", "coverage/**", "node_modules/**", "**/*.mjs", "*.config.ts"],
   },
   js.configs.recommended,

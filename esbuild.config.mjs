@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
 import process from "node:process";
-import builtins from "builtin-modules";
+import { builtinModules } from "node:module";
 import { copyArtifacts, resolveDeployDir } from "./scripts/deploy-target.mjs";
 
 const banner = `/*
@@ -52,7 +52,8 @@ const context = await esbuild.context({
     "@lezer/common",
     "@lezer/highlight",
     "@lezer/lr",
-    ...builtins,
+    ...builtinModules,
+    ...builtinModules.map((m) => `node:${m}`),
   ],
   format: "cjs",
   target: "es2020",

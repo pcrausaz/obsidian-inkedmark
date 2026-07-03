@@ -175,7 +175,6 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         slider
           .setLimits(10, 100, 5)
           .setValue(Math.round(this.plugin.settings.highlighterAlpha * 100))
-          .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings.highlighterAlpha = value / 100;
             await this.plugin.saveSettings();

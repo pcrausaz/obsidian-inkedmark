@@ -5,6 +5,24 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.0.2] - 2026-07-03
+
+Fixes for the community-directory source-code review.
+
+- Inline style assignments replaced with CSS classes / `setCssStyles`
+  (wet-layer visibility, embed canvas sizing, paper margin).
+- Popout-window compatibility: `activeDocument` instead of `document`,
+  `window.requestAnimationFrame`, and `window` instead of `globalThis` for the
+  on-device backend's environment mask.
+- `revealLeaf` awaited; `minAppVersion` raised to 1.7.2 to match its Promise
+  signature.
+- Typed `loadData` result; removed an unnecessary type assertion and a
+  deprecated `setDynamicTooltip` call; described all lint-directive comments.
+- Build tooling: `builtin-modules` package replaced with Node's own
+  `module.builtinModules`.
+- Deferred (tracked in #3): migrating the settings tab off the deprecated
+  `display()` to `getSettingDefinitions`.
+
 ## [1.0.1] - 2026-07-03
 
 Community-directory submission feedback.

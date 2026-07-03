@@ -59,7 +59,7 @@ export function renderStrokesForRecognition(
   const worldH = bounds.maxY - bounds.minY + pad * 2;
   const scale = Math.min(maxEdge / Math.max(worldW, worldH), MAX_UPSCALE);
 
-  const canvas = document.createElement("canvas");
+  const canvas = activeDocument.createElement("canvas");
   canvas.width = Math.max(1, Math.round(worldW * scale));
   canvas.height = Math.max(1, Math.round(worldH * scale));
   const ctx = canvas.getContext("2d");
