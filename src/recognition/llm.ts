@@ -92,8 +92,8 @@ export class LlmProvider implements RecognitionProvider {
           cfg.vendor === "custom"
             ? `${vendorLabel} denied the request (HTTP ${response.status}). If the server needs an ` +
                 "API key, set it in settings; if it sits behind a tunnel or proxy, allow " +
-                "non-localhost requests (Ollama: enable “Expose Ollama to the network”). " +
-                "See SELF_HOSTING.md."
+                "non-localhost requests (Ollama: serve with OLLAMA_HOST=0.0.0.0 or enable " +
+                "network exposure). See SELF_HOSTING.md."
             : `${vendorLabel} rejected the API key — check it in settings.`,
         );
       }

@@ -23,9 +23,12 @@ Be honest with yourself about what local models can do today:
   handwriting today. That gap is shrinking, but it exists.
 
 A practical approach: run a few of your own pages through a cloud model first
-(the OpenRouter vendor makes this easy) to see the quality ceiling, then try
-the same pages against your local model and decide whether the difference is
-acceptable for _your_ handwriting.
+to see the quality ceiling, then try the same pages against your local model
+and decide whether the difference is acceptable for _your_ handwriting. The
+easiest cloud setup is the **OpenRouter** vendor with its **Connect
+OpenRouter** button — one click, approved in your browser, no API key to
+copy. (That path is cloud recognition, unrelated to the self-hosting setup
+below.)
 
 ## What you need
 
@@ -71,9 +74,20 @@ Three things to know:
    expects TLS for app network traffic. Use HTTPS.
 3. **Ollama only answers requests addressed to `localhost` by default.**
    Through a tunnel or proxy the hostname differs, so Ollama returns an empty
-   HTTP 403 even though the tunnel works. Enable **“Expose Ollama to the
-   network”** in the Ollama app's settings (or run the server with
-   `OLLAMA_HOST=0.0.0.0`) before putting a proxy in front of it.
+   HTTP 403 even though the tunnel works. The check is skipped when the
+   server binds a non-loopback address, so run a network-facing server on a
+   second port (the desktop app's own server stays untouched):
+
+   ```sh
+   OLLAMA_HOST=0.0.0.0:11435 ollama serve
+   ```
+
+   and point the tunnel at port 11435. Some Ollama desktop builds have an
+   “Expose Ollama to the network” setting that does the same; the
+   menu-bar-only macOS app has no settings UI. Two caveats: binding
+   `0.0.0.0` also makes the port reachable from your LAN (your firewall
+   governs that), and on macOS do **not** bind the machine's own Tailscale
+   IP instead — the Tailscale proxy cannot hairpin to it and requests hang.
 
 The two easy paths, in order of preference:
 
@@ -81,17 +95,41 @@ The two easy paths, in order of preference:
 
 1. Install [Tailscale](https://tailscale.com) on the server and on the iPad
    (same tailnet).
-2. On the server, put TLS in front of Ollama:
+2. On the server, run a network-facing Ollama (see point 3 above):
 
    ```sh
-   tailscale serve --bg 11434
+   OLLAMA_HOST=0.0.0.0:11435 ollama serve
    ```
 
-3. Use the HTTPS URL Tailscale prints (e.g.
+3. Put TLS in front of it:
+
+   ```sh
+   tailscale serve --bg 11435
+   ```
+
+4. Use the HTTPS URL Tailscale prints (e.g.
    `https://yourbox.your-tailnet.ts.net/v1`) as the endpoint URL in InkedMark.
 
-Nothing is exposed to the public internet; only devices on your tailnet can
-reach the server.
+The HTTPS URL is reachable only from your tailnet, not the public internet.
+To keep the step-2 server running across reboots, wrap it in a launchd agent
+(macOS): save this as `~/Library/LaunchAgents/local.ollama-tailnet.plist`,
+then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.ollama-tailnet.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.ollama-tailnet</string>
+  <key>ProgramArguments</key>
+  <array><string>/usr/local/bin/ollama</string><string>serve</string></array>
+  <key>EnvironmentVariables</key>
+  <dict><key>OLLAMA_HOST</key><string>0.0.0.0:11435</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+</dict>
+</plist>
+```
 
 ### Cloudflare Tunnel (public URL, no port forwarding)
 
@@ -109,9 +147,9 @@ reach the server.
   the `/v1` path, e.g. `https://yourbox.your-tailnet.ts.net/v1` — a bare
   hostname is not enough. The settings field flags this as you type.
 - **"denied the request (HTTP 403)" through Tailscale/Cloudflare** — this is
-  Ollama's localhost-only protection, not an API-key problem: enable “Expose
-  Ollama to the network” in the Ollama app settings (see the iPad section
-  above), then retry.
+  Ollama's localhost-only protection, not an API-key problem: run a
+  network-facing server (`OLLAMA_HOST=0.0.0.0:11435 ollama serve`, see the
+  iPad section above) and point the tunnel at it, then retry.
 - **"could not reach …"** — the server isn't running, or the URL isn't
   reachable from this device (see the iPad section above).
 - **HTTP 404** — the endpoint URL is missing its `/v1` segment (Ollama and
