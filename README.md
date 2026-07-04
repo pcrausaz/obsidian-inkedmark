@@ -73,7 +73,13 @@ Three providers (Settings → Handwriting recognition):
   and model and paste **your own API key**. Typical cost is a fraction of a
   cent per page. The **OpenRouter** vendor lets you try any vision model on
   the market (e.g. `google/gemini-2.5-flash`, `anthropic/claude-haiku-4.5`)
-  with a single key.
+  with a single key — and its **Connect OpenRouter** button sets the key up
+  for you in one click (you approve it in your browser; no copy/paste).
+  The **Custom endpoint** vendor points recognition at any self-hosted
+  OpenAI-compatible server (Ollama, LM Studio, llama.cpp, vLLM, LocalAI) so
+  your ink never leaves your own network — see
+  [SELF_HOSTING.md](SELF_HOSTING.md) for setup guides and honest quality
+  expectations.
 
 - **On-device (experimental, desktop only)** — an offline TrOCR model
   transcribes the ink line-by-line, entirely on your machine. Enable it under
@@ -91,15 +97,18 @@ section too (your own prose in the text layer is never touched).
 
 #### Network use disclosure
 
-InkedMark makes network requests **only** for recognition, and only in two
+InkedMark makes network requests **only** for recognition, and only in three
 cases: (1) _Cloud AI_ sends a rendered PNG of the current note's ink to your
-chosen vendor (Anthropic, OpenAI, Google, or OpenRouter) using your API key,
-after a one-time confirmation; (2) the experimental _on-device_ provider
-downloads its model from the Hugging Face CDN (and the ONNX runtime from
-jsDelivr) on first use — **your ink never leaves the device** with that
-provider. Nothing else is ever transmitted — no telemetry, no analytics, and
-the manual provider works fully offline. Your API key is stored locally in the
-vault's plugin data (`data.json`).
+chosen vendor (Anthropic, OpenAI, Google, or OpenRouter) — or to the custom
+endpoint URL you configured — using your API key, after a one-time
+confirmation; (2) clicking **Connect OpenRouter** opens openrouter.ai in your
+browser and exchanges a one-time code with `openrouter.ai/api/v1/auth/keys` —
+nothing is sent until you approve in the browser; (3) the experimental
+_on-device_ provider downloads its model from the Hugging Face CDN (and the
+ONNX runtime from jsDelivr) on first use — **your ink never leaves the
+device** with that provider. Nothing else is ever transmitted — no telemetry,
+no analytics, and the manual provider works fully offline. Your API key is
+stored locally in the vault's plugin data (`data.json`).
 
 ### The text layer (search & graph)
 

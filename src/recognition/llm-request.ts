@@ -1,21 +1,23 @@
 /**
  * Pure request/response shapes for the BYOK cloud recognition provider (§7).
  *
- * Builds vendor-specific HTTP requests (Anthropic / OpenAI / Google) that send
- * a rendered PNG of the ink plus a transcription prompt, and extracts the
- * transcribed text from each vendor's response JSON. No DOM, no Obsidian, no
- * network — the IO lives in `llm.ts`.
+ * Builds vendor-specific HTTP requests (Anthropic / OpenAI / Google /
+ * OpenRouter / custom OpenAI-compatible endpoint) that send a rendered PNG of
+ * the ink plus a transcription prompt, and extracts the transcribed text from
+ * each vendor's response JSON. No DOM, no Obsidian, no network — the IO lives
+ * in `llm.ts`.
  */
 
 export const LLM_PROVIDER_ID = "llm-byok";
 
-export type LlmVendor = "anthropic" | "openai" | "google" | "openrouter";
+export type LlmVendor = "anthropic" | "openai" | "google" | "openrouter" | "custom";
 
 export const VENDOR_LABELS: Record<LlmVendor, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI (GPT)",
   google: "Google (Gemini)",
   openrouter: "OpenRouter (any model)",
+  custom: "Custom endpoint (OpenAI-compatible)",
 };
 
 /** Editable in settings; these are only the starting points. */
@@ -24,6 +26,7 @@ export const DEFAULT_MODELS: Record<LlmVendor, string> = {
   openai: "gpt-4o-mini",
   google: "gemini-2.5-flash",
   openrouter: "google/gemini-2.5-flash",
+  custom: "qwen2.5vl:7b",
 };
 
 /** Output budget for a page transcription. */
@@ -53,10 +56,42 @@ export function buildRecognitionPrompt(hint?: string, locale?: string): string {
 export interface LlmRequestInput {
   vendor: LlmVendor;
   model: string;
+  /** Optional for the `custom` vendor (most self-hosted servers need none). */
   apiKey: string;
+  /** OpenAI-compatible base URL; required when vendor is `custom`. */
+  baseUrl?: string;
   /** PNG image, base64 without a data-URL prefix. */
   imageBase64: string;
   prompt: string;
+}
+
+/**
+ * Normalize a user-entered OpenAI-compatible base URL (e.g.
+ * `http://localhost:11434/v1`) into its chat-completions endpoint. The `/v1`
+ * segment is the user's responsibility — servers differ on whether they use it.
+ */
+export function chatCompletionsUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`invalid endpoint URL: "${baseUrl.trim()}"`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`endpoint URL must start with http:// or https://: "${baseUrl.trim()}"`);
+  }
+  return trimmed.endsWith("/chat/completions") ? trimmed : `${trimmed}/chat/completions`;
+}
+
+/** Human-readable description of where recognition requests are sent. */
+export function describeLlmTarget(vendor: LlmVendor, baseUrl?: string): string {
+  if (vendor !== "custom") return VENDOR_LABELS[vendor];
+  try {
+    return `your configured endpoint (${new URL((baseUrl ?? "").trim()).host})`;
+  } catch {
+    return "your configured endpoint";
+  }
 }
 
 export interface LlmHttpRequest {
@@ -65,9 +100,9 @@ export interface LlmHttpRequest {
   body: unknown;
 }
 
-/** Build the vendor-specific HTTP request. Throws if the API key is missing. */
+/** Build the vendor-specific HTTP request. Throws if the API key is missing (key is optional for `custom`). */
 export function buildLlmRequest(input: LlmRequestInput): LlmHttpRequest {
-  if (!input.apiKey.trim()) throw new Error("missing API key");
+  if (input.vendor !== "custom" && !input.apiKey.trim()) throw new Error("missing API key");
 
   switch (input.vendor) {
     case "anthropic":
@@ -102,13 +137,16 @@ export function buildLlmRequest(input: LlmRequestInput): LlmHttpRequest {
 
     case "openai":
     case "openrouter":
+    case "custom":
       return {
         url:
-          input.vendor === "openrouter"
-            ? "https://openrouter.ai/api/v1/chat/completions"
-            : "https://api.openai.com/v1/chat/completions",
+          input.vendor === "custom"
+            ? chatCompletionsUrl(input.baseUrl ?? "")
+            : input.vendor === "openrouter"
+              ? "https://openrouter.ai/api/v1/chat/completions"
+              : "https://api.openai.com/v1/chat/completions",
         headers: {
-          authorization: `Bearer ${input.apiKey}`,
+          ...(input.apiKey.trim() ? { authorization: `Bearer ${input.apiKey}` } : {}),
           "content-type": "application/json",
           // OpenRouter attribution headers (ignored by OpenAI).
           ...(input.vendor === "openrouter"
@@ -174,7 +212,7 @@ export function extractLlmText(vendor: LlmVendor, json: unknown): string {
       .join("\n");
   }
 
-  if (vendor === "openai" || vendor === "openrouter") {
+  if (vendor === "openai" || vendor === "openrouter" || vendor === "custom") {
     const choices = json.choices;
     if (!Array.isArray(choices) || !isRecord(choices[0])) return "";
     const message = choices[0].message;

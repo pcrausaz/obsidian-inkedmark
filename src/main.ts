@@ -8,6 +8,7 @@ import {
   type ViewState,
   WorkspaceLeaf,
   normalizePath,
+  requestUrl,
 } from "obsidian";
 import {
   FRONTMATTER_FLAG,
@@ -26,7 +27,15 @@ import { createProviderRegistry, resolveProvider } from "./recognition/registry"
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import { LlmProvider } from "./recognition/llm";
 import { TrocrProvider } from "./recognition/trocr";
-import { VENDOR_LABELS } from "./recognition/llm-request";
+import { describeLlmTarget } from "./recognition/llm-request";
+import {
+  OPENROUTER_CALLBACK_ACTION,
+  buildKeyExchangeRequest,
+  buildOpenRouterAuthUrl,
+  codeChallenge,
+  extractOpenRouterKey,
+  generateCodeVerifier,
+} from "./recognition/openrouter-auth";
 import { ConfirmModal } from "./ui/confirm-modal";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
@@ -34,6 +43,15 @@ import { registerInkEmbeds } from "./view/embed-processor";
 export default class InkedMarkPlugin extends Plugin {
   override settings!: InkedMarkSettings;
   readonly providers = createProviderRegistry();
+
+  /**
+   * PKCE verifier for an in-flight OpenRouter connect. Kept in memory only —
+   * persisting it would sync a secret across devices and leave stale secrets
+   * behind on cancel. If Obsidian is evicted mid-flow, the user just clicks
+   * Connect again.
+   */
+  private pendingOpenRouterVerifier: string | null = null;
+  private settingTab: InkedMarkSettingTab | null = null;
 
   /**
    * Ink files the user explicitly toggled to the markdown view. Without this,
@@ -61,6 +79,7 @@ export default class InkedMarkPlugin extends Plugin {
       vendor: this.settings.llmVendor,
       model: this.settings.llmModel,
       apiKey: this.settings.llmApiKey,
+      baseUrl: this.settings.llmBaseUrl,
     }));
     this.providers.set(llm.id, llm);
 
@@ -163,7 +182,13 @@ export default class InkedMarkPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("layout-change", () => this.switchInkLeaves()));
     this.app.workspace.onLayoutReady(() => this.switchInkLeaves());
 
-    this.addSettingTab(new InkedMarkSettingTab(this.app, this));
+    this.settingTab = new InkedMarkSettingTab(this.app, this);
+    this.addSettingTab(this.settingTab);
+
+    // Receives the browser redirect at the end of the OpenRouter connect flow.
+    this.registerObsidianProtocolHandler(OPENROUTER_CALLBACK_ACTION, (params) => {
+      void this.handleOpenRouterCallback(params);
+    });
   }
 
   override onunload(): void {
@@ -207,12 +232,17 @@ export default class InkedMarkPlugin extends Plugin {
     const provider = this.activeProvider();
     if (provider.requiresNetwork && !this.settings.cloudConsentGiven) {
       if (auto) return;
-      const vendor = VENDOR_LABELS[this.settings.llmVendor];
+      const target = describeLlmTarget(this.settings.llmVendor, this.settings.llmBaseUrl);
+      const custom = this.settings.llmVendor === "custom";
       const confirmed = await ConfirmModal.confirm(this.app, {
-        title: "Send handwriting to a cloud service?",
+        title: custom
+          ? "Send handwriting to your endpoint?"
+          : "Send handwriting to a cloud service?",
         message:
-          `Cloud recognition renders this note's ink into an image and sends it to ${vendor} ` +
-          "using your API key. The ink leaves your device for that request only. " +
+          `Cloud recognition renders this note's ink into an image and sends it to ${target}` +
+          (custom
+            ? ". If that server is yours, the ink stays under your control. "
+            : " using your API key. The ink leaves your device for that request only. ") +
           "This choice is remembered; the manual provider never uses the network.",
         cta: "Send",
       });
@@ -221,6 +251,65 @@ export default class InkedMarkPlugin extends Plugin {
       await this.saveSettings();
     }
     await view.recognize(provider, auto);
+  }
+
+  /** Begin the OpenRouter one-click connect: open the approval page in the browser. */
+  async startOpenRouterConnect(): Promise<void> {
+    const verifier = generateCodeVerifier();
+    this.pendingOpenRouterVerifier = verifier;
+    window.open(buildOpenRouterAuthUrl(await codeChallenge(verifier)));
+  }
+
+  /** Finish the connect flow: trade the browser-redirect code for a user-scoped API key. */
+  async handleOpenRouterCallback(params: Record<string, string>): Promise<void> {
+    if (!params.code) {
+      new Notice("OpenRouter connection failed — no code returned.");
+      return;
+    }
+    const verifier = this.pendingOpenRouterVerifier;
+    if (!verifier) {
+      new Notice("No pending OpenRouter connection — open settings and click Connect again.");
+      return;
+    }
+    this.pendingOpenRouterVerifier = null;
+
+    const request = buildKeyExchangeRequest(params.code, verifier);
+    let response;
+    try {
+      response = await requestUrl({
+        url: request.url,
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(request.body),
+        throw: false,
+      });
+    } catch {
+      new Notice("Could not reach openrouter.ai — check your connection and try again.");
+      return;
+    }
+    if (response.status < 200 || response.status >= 300) {
+      new Notice(`OpenRouter key exchange failed (HTTP ${response.status}).`);
+      return;
+    }
+
+    let key = "";
+    try {
+      key = extractOpenRouterKey(response.json);
+    } catch {
+      // unreadable response body; fall through to the no-key notice
+    }
+    if (!key) {
+      new Notice("OpenRouter returned no API key — try connecting again.");
+      return;
+    }
+
+    this.settings.llmApiKey = key;
+    // Defensive: the vendor dropdown may have changed while the browser was open.
+    this.settings.llmVendor = "openrouter";
+    await this.saveSettings();
+    new Notice("OpenRouter connected.");
+    // Refresh the settings tab if it is currently visible.
+    if (this.settingTab?.containerEl.isConnected) this.settingTab.display();
   }
 
   /** Turn the input debug overlay on/off everywhere (settings toggle + command). */

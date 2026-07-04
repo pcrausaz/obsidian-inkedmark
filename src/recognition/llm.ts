@@ -1,7 +1,8 @@
 /**
  * BYOK cloud recognition provider: renders the note's ink to a PNG and asks a
- * vision LLM (Anthropic / OpenAI / Google, user-selected, user's own API key)
- * for a markdown transcription.
+ * vision LLM (Anthropic / OpenAI / Google / OpenRouter / a self-hosted
+ * OpenAI-compatible endpoint, user-selected, user's own API key) for a
+ * markdown transcription.
  *
  * Network transport is Obsidian's `requestUrl` (not the vendor SDKs): the
  * plugin runs inside Obsidian's webview where cross-origin fetch is blocked
@@ -15,11 +16,11 @@ import type { RecognitionProvider, RecognitionRequest, RecognitionResult } from 
 import {
   LLM_PROVIDER_ID,
   type LlmVendor,
-  VENDOR_LABELS,
   buildLlmRequest,
   buildRecognitionPrompt,
   cleanTranscription,
   defaultModelFor,
+  describeLlmTarget,
   extractLlmText,
 } from "./llm-request";
 import { renderStrokesForRecognition } from "./render";
@@ -28,7 +29,10 @@ export interface LlmProviderConfig {
   vendor: LlmVendor;
   /** Empty string means "use the vendor default". */
   model: string;
+  /** Optional for the `custom` vendor. */
   apiKey: string;
+  /** OpenAI-compatible base URL; only used when vendor is `custom`. */
+  baseUrl: string;
 }
 
 export class LlmProvider implements RecognitionProvider {
@@ -39,8 +43,12 @@ export class LlmProvider implements RecognitionProvider {
 
   async recognize(req: RecognitionRequest): Promise<RecognitionResult> {
     const cfg = this.getConfig();
-    const vendorLabel = VENDOR_LABELS[cfg.vendor];
-    if (!cfg.apiKey.trim()) {
+    const vendorLabel = describeLlmTarget(cfg.vendor, cfg.baseUrl);
+    if (cfg.vendor === "custom") {
+      if (!cfg.baseUrl.trim()) {
+        throw new Error("no endpoint URL set — add one in InkedMark settings.");
+      }
+    } else if (!cfg.apiKey.trim()) {
       throw new Error(`no API key set for ${vendorLabel} — add one in InkedMark settings.`);
     }
 
@@ -51,17 +59,28 @@ export class LlmProvider implements RecognitionProvider {
       vendor: cfg.vendor,
       model: cfg.model.trim() || defaultModelFor(cfg.vendor),
       apiKey: cfg.apiKey.trim(),
+      baseUrl: cfg.baseUrl,
       imageBase64: image.base64,
       prompt: buildRecognitionPrompt(req.hint, req.locale),
     });
 
-    const response = await requestUrl({
-      url: request.url,
-      method: "POST",
-      headers: request.headers,
-      body: JSON.stringify(request.body),
-      throw: false,
-    });
+    let response;
+    try {
+      response = await requestUrl({
+        url: request.url,
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(request.body),
+        throw: false,
+      });
+    } catch {
+      // `throw: false` covers HTTP errors, but connection-level failures
+      // (refused, unreachable, TLS) still reject — common with self-hosted
+      // endpoints, so name the host instead of surfacing a generic error.
+      throw new Error(
+        `could not reach ${vendorLabel} — is the server running and reachable from this device?`,
+      );
+    }
 
     if (response.status < 200 || response.status >= 300) {
       if (response.status === 401 || response.status === 403) {

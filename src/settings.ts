@@ -40,6 +40,8 @@ export interface InkedMarkSettings {
   /** Empty string means "use the vendor's default model". */
   llmModel: string;
   llmApiKey: string;
+  /** OpenAI-compatible base URL for the `custom` vendor (self-hosted servers). */
+  llmBaseUrl: string;
   /** User has acknowledged that cloud recognition sends ink off-device. */
   cloudConsentGiven: boolean;
   /** Run cloud recognition automatically after the ink has been idle. */
@@ -66,6 +68,7 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   llmVendor: "anthropic",
   llmModel: "",
   llmApiKey: "",
+  llmBaseUrl: "",
   cloudConsentGiven: false,
   autoRecognize: false,
   experimentalTrocr: false,
@@ -229,6 +232,54 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         });
       });
 
+      if (this.plugin.settings.llmVendor === "custom") {
+        let httpWarning: HTMLDivElement | null = null;
+        new Setting(containerEl)
+          .setName("Endpoint URL")
+          .setDesc(
+            "OpenAI-compatible base URL, including /v1 where the server uses one — " +
+              "works with Ollama, LM Studio, llama.cpp, vLLM, LocalAI. See SELF_HOSTING.md " +
+              "in the plugin repository for setup guides.",
+          )
+          .addText((text) =>
+            text
+              .setPlaceholder("http://localhost:11434/v1")
+              .setValue(this.plugin.settings.llmBaseUrl)
+              .onChange(async (value) => {
+                this.plugin.settings.llmBaseUrl = value.trim();
+                httpWarning?.toggle(this.plugin.settings.llmBaseUrl.startsWith("http://"));
+                await this.plugin.saveSettings();
+              }),
+          );
+        httpWarning = containerEl.createDiv({ cls: "inkedmark-callout" });
+        httpWarning.createEl("div", {
+          cls: "inkedmark-callout-title",
+          text: "Plain-HTTP endpoints often fail on iPhone/iPad",
+        });
+        httpWarning.createEl("div", {
+          text:
+            "For access from mobile devices, expose the server over HTTPS — for example " +
+            "with “tailscale serve” or a Cloudflare Tunnel (see SELF_HOSTING.md). " +
+            "Also note that “localhost” on an iPad is the iPad itself, not your server.",
+        });
+        httpWarning.toggle(this.plugin.settings.llmBaseUrl.startsWith("http://"));
+      }
+
+      if (this.plugin.settings.llmVendor === "openrouter") {
+        new Setting(containerEl)
+          .setName("Connect OpenRouter")
+          .setDesc(
+            "One-click connect creates a user-scoped API key in your browser — no copy/paste. " +
+              "You approve it on openrouter.ai; nothing is sent until you do.",
+          )
+          .addButton((button) =>
+            button
+              .setButtonText(this.plugin.settings.llmApiKey ? "Reconnect" : "Connect OpenRouter")
+              .setCta()
+              .onClick(() => void this.plugin.startOpenRouterConnect()),
+          );
+      }
+
       new Setting(containerEl)
         .setName("Cloud AI model")
         .setDesc(
@@ -249,8 +300,11 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName("Cloud AI API key")
         .setDesc(
-          "Your own key for the selected vendor. Stored locally in this vault's plugin data " +
-            "and sent only to that vendor when you run recognition.",
+          this.plugin.settings.llmVendor === "custom"
+            ? "Optional — most self-hosted servers don't need one. Stored locally in this " +
+                "vault's plugin data and sent only to your configured endpoint."
+            : "Your own key for the selected vendor. Stored locally in this vault's plugin data " +
+                "and sent only to that vendor when you run recognition.",
         )
         .addText((text) => {
           text.inputEl.type = "password";
