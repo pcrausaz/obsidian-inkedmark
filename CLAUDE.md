@@ -1,8 +1,33 @@
 # InkedMark — notes for coding agents
 
-Obsidian plugin: pressure-aware handwriting fused with markdown. User-facing
-docs live in README.md; design decisions and roadmap in SPECIFICATION.md;
-manual test matrix in QA.md; release process in RELEASE.md.
+Obsidian plugin: pressure-aware handwriting fused with markdown.
+
+## Document map — check the relevant one before/after a change
+
+- `README.md` — user-facing docs, including the **Network use disclosure**,
+  which must stay accurate whenever network behavior changes.
+- `SPECIFICATION.md` — design decisions, rationale, roadmap, open decisions.
+  Record strategy-level choices here, not in code comments.
+- `SELF_HOSTING.md` — self-hosted recognition guide (custom endpoint vendor).
+- `QA.md` — manual test matrix (desktop + iPad). Add cases for new
+  user-facing features.
+- `CHANGELOG.md` — update **before** releasing; the release flow in
+  `RELEASE.md` expects the section to exist first.
+- `RELEASE.md` — release process (`npm version` bumps manifest/versions.json
+  and tags).
+- `docs/` — the **public website** (GitHub Pages), not prose docs. Do not put
+  markdown documentation there.
+
+## Automation with public side effects (`.github/workflows/`)
+
+- `pages.yml` — any push to `main` touching `docs/**` **deploys the public
+  website**.
+- `release.yml` — pushing a `*.*.*` tag **publishes a GitHub release** with
+  attested artifacts.
+- `ci.yml` — lint/typecheck/test/build on pushes to `main` and PRs.
+
+In short: pushing to `main` or pushing tags can publish things. Don't do
+either without being asked.
 
 ## Commands
 
