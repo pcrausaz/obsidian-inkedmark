@@ -84,7 +84,18 @@ export class LlmProvider implements RecognitionProvider {
 
     if (response.status < 200 || response.status >= 300) {
       if (response.status === 401 || response.status === 403) {
-        throw new Error(`${vendorLabel} rejected the API key — check it in settings.`);
+        // For self-hosted endpoints a 401/403 is more often the server's own
+        // access control than a bad key (e.g. Ollama only answers requests
+        // addressed to localhost unless network access is enabled, so a
+        // tunnel/proxy hostname gets an empty 403).
+        throw new Error(
+          cfg.vendor === "custom"
+            ? `${vendorLabel} denied the request (HTTP ${response.status}). If the server needs an ` +
+                "API key, set it in settings; if it sits behind a tunnel or proxy, allow " +
+                "non-localhost requests (Ollama: enable “Expose Ollama to the network”). " +
+                "See SELF_HOSTING.md."
+            : `${vendorLabel} rejected the API key — check it in settings.`,
+        );
       }
       throw new Error(`${vendorLabel} request failed (HTTP ${response.status}).`);
     }

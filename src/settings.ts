@@ -14,6 +14,7 @@ import {
   LLM_PROVIDER_ID,
   type LlmVendor,
   VENDOR_LABELS,
+  chatCompletionsUrl,
 } from "./recognition/llm-request";
 import { providerLabel } from "./recognition/registry";
 import type InkedMarkPlugin from "./main";
@@ -233,7 +234,21 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       });
 
       if (this.plugin.settings.llmVendor === "custom") {
+        let urlError: HTMLDivElement | null = null;
         let httpWarning: HTMLDivElement | null = null;
+        const refreshEndpointCallouts = () => {
+          const url = this.plugin.settings.llmBaseUrl;
+          let invalid = false;
+          if (url) {
+            try {
+              chatCompletionsUrl(url);
+            } catch {
+              invalid = true;
+            }
+          }
+          urlError?.toggle(invalid);
+          httpWarning?.toggle(!invalid && url.startsWith("http://"));
+        };
         new Setting(containerEl)
           .setName("Endpoint URL")
           .setDesc(
@@ -247,10 +262,20 @@ export class InkedMarkSettingTab extends PluginSettingTab {
               .setValue(this.plugin.settings.llmBaseUrl)
               .onChange(async (value) => {
                 this.plugin.settings.llmBaseUrl = value.trim();
-                httpWarning?.toggle(this.plugin.settings.llmBaseUrl.startsWith("http://"));
+                refreshEndpointCallouts();
                 await this.plugin.saveSettings();
               }),
           );
+        urlError = containerEl.createDiv({ cls: "inkedmark-callout" });
+        urlError.createEl("div", {
+          cls: "inkedmark-callout-title",
+          text: "Incomplete endpoint URL",
+        });
+        urlError.createEl("div", {
+          text:
+            "Enter the full URL including the scheme, e.g. http://localhost:11434/v1 or " +
+            "https://yourbox.your-tailnet.ts.net/v1.",
+        });
         httpWarning = containerEl.createDiv({ cls: "inkedmark-callout" });
         httpWarning.createEl("div", {
           cls: "inkedmark-callout-title",
@@ -262,7 +287,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             "with “tailscale serve” or a Cloudflare Tunnel (see SELF_HOSTING.md). " +
             "Also note that “localhost” on an iPad is the iPad itself, not your server.",
         });
-        httpWarning.toggle(this.plugin.settings.llmBaseUrl.startsWith("http://"));
+        refreshEndpointCallouts();
       }
 
       if (this.plugin.settings.llmVendor === "openrouter") {

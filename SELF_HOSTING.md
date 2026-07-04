@@ -63,12 +63,17 @@ acceptable for _your_ handwriting.
 
 ## Reaching your server from an iPad
 
-Two things to know:
+Three things to know:
 
 1. `localhost` on the iPad is the iPad itself — you need a URL that reaches
    the machine running the model.
 2. Plain-HTTP URLs (`http://192.168.1.10:11434/v1`) often fail on iOS, which
    expects TLS for app network traffic. Use HTTPS.
+3. **Ollama only answers requests addressed to `localhost` by default.**
+   Through a tunnel or proxy the hostname differs, so Ollama returns an empty
+   HTTP 403 even though the tunnel works. Enable **“Expose Ollama to the
+   network”** in the Ollama app's settings (or run the server with
+   `OLLAMA_HOST=0.0.0.0`) before putting a proxy in front of it.
 
 The two easy paths, in order of preference:
 
@@ -100,6 +105,13 @@ reach the server.
 
 ## Troubleshooting
 
+- **"invalid endpoint URL"** — enter the full URL including the scheme and
+  the `/v1` path, e.g. `https://yourbox.your-tailnet.ts.net/v1` — a bare
+  hostname is not enough. The settings field flags this as you type.
+- **"denied the request (HTTP 403)" through Tailscale/Cloudflare** — this is
+  Ollama's localhost-only protection, not an API-key problem: enable “Expose
+  Ollama to the network” in the Ollama app settings (see the iPad section
+  above), then retry.
 - **"could not reach …"** — the server isn't running, or the URL isn't
   reachable from this device (see the iPad section above).
 - **HTTP 404** — the endpoint URL is missing its `/v1` segment (Ollama and

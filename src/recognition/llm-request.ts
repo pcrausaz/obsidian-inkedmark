@@ -76,7 +76,10 @@ export function chatCompletionsUrl(baseUrl: string): string {
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new Error(`invalid endpoint URL: "${baseUrl.trim()}"`);
+    throw new Error(
+      `invalid endpoint URL "${baseUrl.trim()}" — enter a full URL like ` +
+        "http://localhost:11434/v1 or https://yourbox.your-tailnet.ts.net/v1",
+    );
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error(`endpoint URL must start with http:// or https://: "${baseUrl.trim()}"`);
