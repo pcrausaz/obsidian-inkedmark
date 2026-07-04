@@ -1,7 +1,7 @@
 {
   "id": "inkedmark",
   "name": "InkedMark",
-  "version": "1.0.2",
+  "version": "1.0.3-beta.1",
   "minAppVersion": "1.7.2",
   "description": "Handwrite inside your markdown notes with pressure-aware ink, a searchable text layer, inline sketches, and Apple Pencil support.",
   "author": "Liqpil",
