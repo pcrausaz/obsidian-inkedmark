@@ -28,6 +28,9 @@ extracted from the matching section of this file by `release.yml`.
   tunnel) from API-key problems, with pointers to the self-hosting guide.
 - README network-use disclosure updated for the custom endpoint and the
   OpenRouter connect flow.
+- Deferred (issue to be filed on merge — see SPECIFICATION.md §17):
+  consolidating per-vendor recognition wiring into a descriptor table before
+  the next vendor is added.
 
 ## [1.0.2] - 2026-07-03
 

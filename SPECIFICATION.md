@@ -634,6 +634,16 @@ Suggested kickoff for the new session:
 
 ## 17. Open decisions (revisit with data)
 
+- **Per-vendor descriptor table for recognition vendors.** The BYOK vendors
+  (anthropic/openai/google/openrouter/custom) are wired through per-vendor
+  conditionals spread across `llm-request.ts`, `llm.ts`, `settings.ts`, and
+  `main.ts` (key optionality, URL building, response dialect, consent
+  wording, settings UI) — at least seven special-case sites confirmed by
+  review. Consolidate into one `VENDORS` record (label, default model, URL
+  builder, requiresKey, dialect) **before adding another vendor**.
+  Deliberately deferred from the self-hosting branch: refactoring four files
+  immediately after field-testing traded a working, tested state for style.
+  File as a GitHub issue when the branch merges.
 - **Single-file vs two-file storage.** Committed to single-file `.ink.md`.
   Revisit only if real-world search-index noise from the base64 block proves
   material; the fallback is `twoFileStorage` (text `.ink.md` + binary
