@@ -111,7 +111,27 @@ The two easy paths, in order of preference:
    `https://yourbox.your-tailnet.ts.net/v1`) as the endpoint URL in InkedMark.
 
 The HTTPS URL is reachable only from your tailnet, not the public internet.
-To keep the step-2 server running across reboots, wrap it in a launchd agent
+
+#### Running the server only when you need it
+
+If you use local recognition occasionally (say, for testing) rather than
+daily, skip the always-on setup and manage the server by hand:
+
+- **Start** (survives closing the terminal; dies at reboot/logout):
+
+  ```sh
+  nohup env OLLAMA_HOST=0.0.0.0:11435 ollama serve \
+    > ~/Library/Logs/ollama-tailnet.log 2>&1 & disown
+  ```
+
+- **Stop**: `kill $(lsof -tnP -iTCP:11435 -sTCP:LISTEN)`
+- **Check**: `curl http://localhost:11435/api/version` (or the tailnet HTTPS
+  URL from the client device).
+- The `tailscale serve` mapping can stay configured while the server is
+  down — clients just get a 502 until you start it again, and InkedMark
+  reports "could not reach your configured endpoint".
+
+To keep the step-2 server running across reboots instead, wrap it in a launchd agent
 (macOS): save this as `~/Library/LaunchAgents/local.ollama-tailnet.plist`,
 then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.ollama-tailnet.plist`:
 
