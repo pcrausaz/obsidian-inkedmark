@@ -8,7 +8,6 @@ import {
   type ViewState,
   WorkspaceLeaf,
   normalizePath,
-  requestUrl,
 } from "obsidian";
 import {
   FRONTMATTER_FLAG,
@@ -28,6 +27,7 @@ import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import { LlmProvider } from "./recognition/llm";
 import { TrocrProvider } from "./recognition/trocr";
 import { describeLlmTarget } from "./recognition/llm-request";
+import { postJson } from "./recognition/http";
 import {
   OPENROUTER_CALLBACK_ACTION,
   buildKeyExchangeRequest,
@@ -78,7 +78,12 @@ export default class InkedMarkPlugin extends Plugin {
     const llm = new LlmProvider(() => ({
       vendor: this.settings.llmVendor,
       model: this.settings.llmModel,
-      apiKey: this.settings.llmApiKey,
+      // The custom endpoint gets its own key — a cloud vendor key must never
+      // be sent to an arbitrary user-configured URL.
+      apiKey:
+        this.settings.llmVendor === "custom"
+          ? this.settings.llmCustomApiKey
+          : this.settings.llmApiKey,
       baseUrl: this.settings.llmBaseUrl,
     }));
     this.providers.set(llm.id, llm);
@@ -230,10 +235,14 @@ export default class InkedMarkPlugin extends Plugin {
    */
   async runRecognition(view: InkView, auto = false): Promise<void> {
     const provider = this.activeProvider();
-    if (provider.requiresNetwork && !this.settings.cloudConsentGiven) {
+    // Consent is scoped: named cloud vendors and the user-configured custom
+    // endpoint are different destinations, so consenting to one must not
+    // silently authorize the other after a vendor switch.
+    const custom = this.settings.llmVendor === "custom";
+    const consented = custom ? this.settings.customConsentGiven : this.settings.cloudConsentGiven;
+    if (provider.requiresNetwork && !consented) {
       if (auto) return;
       const target = describeLlmTarget(this.settings.llmVendor, this.settings.llmBaseUrl);
-      const custom = this.settings.llmVendor === "custom";
       const confirmed = await ConfirmModal.confirm(this.app, {
         title: custom
           ? "Send handwriting to your endpoint?"
@@ -241,13 +250,15 @@ export default class InkedMarkPlugin extends Plugin {
         message:
           `Cloud recognition renders this note's ink into an image and sends it to ${target}` +
           (custom
-            ? ". If that server is yours, the ink stays under your control. "
+            ? ". The ink leaves this app for that request only — where it goes is up to " +
+              "whoever operates that server. "
             : " using your API key. The ink leaves your device for that request only. ") +
           "This choice is remembered; the manual provider never uses the network.",
         cta: "Send",
       });
       if (!confirmed) return;
-      this.settings.cloudConsentGiven = true;
+      if (custom) this.settings.customConsentGiven = true;
+      else this.settings.cloudConsentGiven = true;
       await this.saveSettings();
     }
     await view.recognize(provider, auto);
@@ -255,9 +266,20 @@ export default class InkedMarkPlugin extends Plugin {
 
   /** Begin the OpenRouter one-click connect: open the approval page in the browser. */
   async startOpenRouterConnect(): Promise<void> {
-    const verifier = generateCodeVerifier();
+    // Reuse an in-flight verifier so a second Connect click opens a tab with
+    // the SAME challenge — approving either tab then exchanges cleanly.
+    const verifier = this.pendingOpenRouterVerifier ?? generateCodeVerifier();
     this.pendingOpenRouterVerifier = verifier;
     window.open(buildOpenRouterAuthUrl(await codeChallenge(verifier)));
+  }
+
+  /**
+   * Invalidate an in-flight connect. Called when the user edits the vendor or
+   * API key in settings, so a stale browser approval can no longer overwrite
+   * configuration made after the Connect click.
+   */
+  cancelOpenRouterConnect(): void {
+    this.pendingOpenRouterVerifier = null;
   }
 
   /** Finish the connect flow: trade the browser-redirect code for a user-scoped API key. */
@@ -276,13 +298,7 @@ export default class InkedMarkPlugin extends Plugin {
     const request = buildKeyExchangeRequest(params.code, verifier);
     let response;
     try {
-      response = await requestUrl({
-        url: request.url,
-        method: "POST",
-        headers: request.headers,
-        body: JSON.stringify(request.body),
-        throw: false,
-      });
+      response = await postJson(request.url, request.headers, request.body);
     } catch {
       new Notice("Could not reach openrouter.ai — check your connection and try again.");
       return;

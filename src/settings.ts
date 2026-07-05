@@ -15,6 +15,7 @@ import {
   type LlmVendor,
   VENDOR_LABELS,
   chatCompletionsUrl,
+  isPlainHttpUrl,
 } from "./recognition/llm-request";
 import { providerLabel } from "./recognition/registry";
 import type InkedMarkPlugin from "./main";
@@ -43,8 +44,15 @@ export interface InkedMarkSettings {
   llmApiKey: string;
   /** OpenAI-compatible base URL for the `custom` vendor (self-hosted servers). */
   llmBaseUrl: string;
+  /**
+   * Key sent only to the custom endpoint — kept separate from `llmApiKey` so
+   * a cloud vendor secret can never leak to an arbitrary user-configured URL.
+   */
+  llmCustomApiKey: string;
   /** User has acknowledged that cloud recognition sends ink off-device. */
   cloudConsentGiven: boolean;
+  /** Separate consent for the user-configured custom endpoint. */
+  customConsentGiven: boolean;
   /** Run cloud recognition automatically after the ink has been idle. */
   autoRecognize: boolean;
   /** Expose the experimental on-device (TrOCR) recognizer. */
@@ -70,7 +78,9 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   llmModel: "",
   llmApiKey: "",
   llmBaseUrl: "",
+  llmCustomApiKey: "",
   cloudConsentGiven: false,
+  customConsentGiven: false,
   autoRecognize: false,
   experimentalTrocr: false,
   trocrModel: "small",
@@ -228,6 +238,9 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         for (const [id, label] of Object.entries(VENDOR_LABELS)) dropdown.addOption(id, label);
         dropdown.setValue(this.plugin.settings.llmVendor).onChange(async (value) => {
           this.plugin.settings.llmVendor = value as LlmVendor;
+          // A vendor change invalidates any in-flight OpenRouter connect so a
+          // stale browser approval can't overwrite this choice later.
+          this.plugin.cancelOpenRouterConnect();
           await this.plugin.saveSettings();
           this.display(); // refresh the model placeholder
         });
@@ -247,7 +260,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             }
           }
           urlError?.toggle(invalid);
-          httpWarning?.toggle(!invalid && url.startsWith("http://"));
+          httpWarning?.toggle(!invalid && isPlainHttpUrl(url));
         };
         new Setting(containerEl)
           .setName("Endpoint URL")
@@ -323,22 +336,33 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             }),
         );
 
+      // The custom endpoint has its own key slot so a cloud vendor secret is
+      // never sent to an arbitrary user-configured URL.
+      const customKey = this.plugin.settings.llmVendor === "custom";
       new Setting(containerEl)
-        .setName("Cloud AI API key")
+        .setName(customKey ? "Endpoint API key" : "Cloud AI API key")
         .setDesc(
-          this.plugin.settings.llmVendor === "custom"
-            ? "Optional — most self-hosted servers don't need one. Stored locally in this " +
-                "vault's plugin data and sent only to your configured endpoint."
+          customKey
+            ? "Optional — most self-hosted servers don't need one. Kept separate from your " +
+                "cloud vendor key and sent only to your configured endpoint."
             : "Your own key for the selected vendor. Stored locally in this vault's plugin data " +
                 "and sent only to that vendor when you run recognition.",
         )
         .addText((text) => {
           text.inputEl.type = "password";
           text
-            .setPlaceholder("sk-…")
-            .setValue(this.plugin.settings.llmApiKey)
+            .setPlaceholder(customKey ? "(usually empty)" : "sk-…")
+            .setValue(
+              customKey ? this.plugin.settings.llmCustomApiKey : this.plugin.settings.llmApiKey,
+            )
             .onChange(async (value) => {
-              this.plugin.settings.llmApiKey = value.trim();
+              if (customKey) {
+                this.plugin.settings.llmCustomApiKey = value.trim();
+              } else {
+                this.plugin.settings.llmApiKey = value.trim();
+                // Editing the key by hand invalidates any in-flight connect.
+                this.plugin.cancelOpenRouterConnect();
+              }
               await this.plugin.saveSettings();
             });
         });

@@ -71,20 +71,34 @@ export interface LlmRequestInput {
  * segment is the user's responsibility — servers differ on whether they use it.
  */
 export function chatCompletionsUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  const trimmed = baseUrl.trim();
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
   } catch {
     throw new Error(
-      `invalid endpoint URL "${baseUrl.trim()}" — enter a full URL like ` +
+      `invalid endpoint URL "${trimmed}" — enter a full URL like ` +
         "http://localhost:11434/v1 or https://yourbox.your-tailnet.ts.net/v1",
     );
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`endpoint URL must start with http:// or https://: "${baseUrl.trim()}"`);
+    throw new Error(`endpoint URL must start with http:// or https://: "${trimmed}"`);
   }
-  return trimmed.endsWith("/chat/completions") ? trimmed : `${trimmed}/chat/completions`;
+  // Operate on the pathname so a query string survives (gateways often need
+  // one, e.g. ?api-version=…) instead of the suffix landing inside it.
+  const path = parsed.pathname.replace(/\/+$/, "");
+  parsed.pathname = path.endsWith("/chat/completions") ? path : `${path}/chat/completions`;
+  parsed.hash = "";
+  return parsed.href;
+}
+
+/** True when the URL parses and uses plain HTTP, whatever the letter case. */
+export function isPlainHttpUrl(url: string): boolean {
+  try {
+    return new URL(url.trim()).protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 /** Human-readable description of where recognition requests are sent. */

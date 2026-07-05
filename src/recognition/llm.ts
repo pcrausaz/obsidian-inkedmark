@@ -11,8 +11,8 @@
  * tested); image rendering lives in `render.ts`.
  */
 
-import { requestUrl } from "obsidian";
 import type { RecognitionProvider, RecognitionRequest, RecognitionResult } from "./provider";
+import { postJson } from "./http";
 import {
   LLM_PROVIDER_ID,
   type LlmVendor,
@@ -66,19 +66,14 @@ export class LlmProvider implements RecognitionProvider {
 
     let response;
     try {
-      response = await requestUrl({
-        url: request.url,
-        method: "POST",
-        headers: request.headers,
-        body: JSON.stringify(request.body),
-        throw: false,
-      });
-    } catch {
-      // `throw: false` covers HTTP errors, but connection-level failures
-      // (refused, unreachable, TLS) still reject — common with self-hosted
-      // endpoints, so name the host instead of surfacing a generic error.
+      response = await postJson(request.url, request.headers, request.body);
+    } catch (err) {
+      const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
       throw new Error(
-        `could not reach ${vendorLabel} — is the server running and reachable from this device?`,
+        cfg.vendor === "custom"
+          ? `could not reach ${vendorLabel} — is the server running and reachable ` +
+              `from this device?${detail}`
+          : `could not reach ${vendorLabel} — check your network connection.${detail}`,
       );
     }
 

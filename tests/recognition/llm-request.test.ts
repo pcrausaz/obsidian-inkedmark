@@ -8,6 +8,7 @@ import {
   defaultModelFor,
   describeLlmTarget,
   extractLlmText,
+  isPlainHttpUrl,
 } from "../../src/recognition/llm-request";
 
 const base = { model: "test-model", apiKey: "sk-test", imageBase64: "AAAA", prompt: "transcribe" };
@@ -123,10 +124,35 @@ describe("chatCompletionsUrl", () => {
     );
   });
 
+  it("appends to the path, preserving a query string (gateway-style URLs)", () => {
+    expect(chatCompletionsUrl("https://gw.example.com/v1?api-version=2024")).toBe(
+      "https://gw.example.com/v1/chat/completions?api-version=2024",
+    );
+  });
+
+  it("drops fragments", () => {
+    expect(chatCompletionsUrl("http://localhost:11434/v1#anchor")).toBe(
+      "http://localhost:11434/v1/chat/completions",
+    );
+  });
+
   it("throws on unparseable or non-http(s) URLs", () => {
     expect(() => chatCompletionsUrl("")).toThrow(/endpoint URL/);
     expect(() => chatCompletionsUrl("localhost:11434")).toThrow(/endpoint URL/);
     expect(() => chatCompletionsUrl("ftp://example.com")).toThrow(/http/);
+  });
+});
+
+describe("isPlainHttpUrl", () => {
+  it("detects plain HTTP regardless of letter case", () => {
+    expect(isPlainHttpUrl("http://192.168.1.10:11434/v1")).toBe(true);
+    expect(isPlainHttpUrl("HTTP://192.168.1.10:11434/v1")).toBe(true);
+  });
+
+  it("is false for https and unparseable input", () => {
+    expect(isPlainHttpUrl("https://yourbox.ts.net/v1")).toBe(false);
+    expect(isPlainHttpUrl("not a url")).toBe(false);
+    expect(isPlainHttpUrl("")).toBe(false);
   });
 });
 
