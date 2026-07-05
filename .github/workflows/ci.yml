@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# CI only reads the repo; never grant the default write token.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Lint, typecheck, test, build
