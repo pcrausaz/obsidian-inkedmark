@@ -5,7 +5,9 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.1.0] - 2026-07-05
+
+Self-hosted recognition and one-click OpenRouter setup.
 
 ### Added
 
