@@ -112,6 +112,18 @@ inheritance actually holds on device:
       the progress notice shows download % then line N/M.
 - [ ] Mobile: on-device provider is absent from settings; if synced-on, a scan
       falls back to manual/clear message rather than crashing.
+- [ ] Custom endpoint (Ollama on localhost): recognition works with a blank
+      API key; the consent modal names the endpoint host, not a vendor.
+- [ ] Custom endpoint, bad input: a bare hostname shows the "Incomplete
+      endpoint URL" callout as you type; an unreachable server yields the
+      "could not reach" message, not a generic HTTP error.
+- [ ] Custom endpoint on iPad over HTTPS (e.g. Tailscale): recognition works;
+      an `http://` URL shows the plain-HTTP warning callout; the Endpoint URL
+      field is full-width and readable.
+- [ ] Connect OpenRouter: browser opens, approving stores a key and sets the
+      vendor, and recognition works; canceling in the browser is harmless;
+      `obsidian://inkedmark-openrouter?code=x` with no pending connect shows a
+      clean notice.
 
 ## P2 — Cross-cutting
 

@@ -251,6 +251,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         };
         new Setting(containerEl)
           .setName("Endpoint URL")
+          .setClass("inkedmark-wide-text")
           .setDesc(
             "OpenAI-compatible base URL, including /v1 where the server uses one — " +
               "works with Ollama, LM Studio, llama.cpp, vLLM, LocalAI. See SELF_HOSTING.md " +

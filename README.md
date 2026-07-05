@@ -141,6 +141,10 @@ No sidecar files; atomic sync and version control.
   [release](https://github.com/pcrausaz/obsidian-inkedmark/releases) into
   `<vault>/.obsidian/plugins/inkedmark/`, then enable it.
 
+What changed between versions is documented in the
+[changelog](CHANGELOG.md); each GitHub release carries the matching section
+as its release notes.
+
 ## iPad / Apple Pencil setup — important
 
 **Turn off iPadOS Scribble:** _Settings → Apple Pencil → Scribble (off)._

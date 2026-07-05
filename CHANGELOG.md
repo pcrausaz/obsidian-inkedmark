@@ -5,6 +5,30 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Added
+
+- **Custom endpoint (OpenAI-compatible)** recognition vendor: point Cloud AI
+  at a self-hosted server (Ollama, LM Studio, llama.cpp, vLLM, LocalAI) via a
+  base-URL setting, so ink never leaves your own network. API key optional.
+  The new [SELF_HOSTING.md](SELF_HOSTING.md) guide covers setup, reaching a
+  home server from an iPad (Tailscale / Cloudflare Tunnel), and honest
+  quality expectations for local models.
+- **Connect OpenRouter**: one-click OAuth (PKCE) setup of a user-scoped API
+  key from the settings tab — no manual key copy/paste.
+- The Endpoint URL settings field validates as you type and shows what a
+  complete URL looks like; it now also uses a full-width layout so long URLs
+  stay readable on mobile.
+
+### Changed
+
+- Recognition errors name the configured endpoint and distinguish server
+  access-control rejections (e.g. Ollama's localhost-only default behind a
+  tunnel) from API-key problems, with pointers to the self-hosting guide.
+- README network-use disclosure updated for the custom endpoint and the
+  OpenRouter connect flow.
+
 ## [1.0.2] - 2026-07-03
 
 Fixes for the community-directory source-code review.

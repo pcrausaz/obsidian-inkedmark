@@ -64,6 +64,26 @@
   color: var(--text-normal);
 }
 
+/* Settings-tab wide text field (endpoint URL): stack the label above a
+   full-width input so long URLs stay readable, especially on mobile. */
+.inkedmark-wide-text {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.inkedmark-wide-text .setting-item-info {
+  margin-right: 0;
+}
+
+.inkedmark-wide-text .setting-item-control {
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
+.inkedmark-wide-text .setting-item-control input {
+  width: 100%;
+}
+
 /* Inline ```inkedmark``` embed (reading mode). */
 .inkedmark-embed {
   margin: 0.5em 0;
