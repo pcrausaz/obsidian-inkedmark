@@ -643,7 +643,7 @@ Suggested kickoff for the new session:
   builder, requiresKey, dialect) **before adding another vendor**.
   Deliberately deferred from the self-hosting branch: refactoring four files
   immediately after field-testing traded a working, tested state for style.
-  File as a GitHub issue when the branch merges.
+  Tracked in #7.
 - **Single-file vs two-file storage.** Committed to single-file `.ink.md`.
   Revisit only if real-world search-index noise from the base64 block proves
   material; the fallback is `twoFileStorage` (text `.ink.md` + binary
