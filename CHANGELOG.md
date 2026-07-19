@@ -5,6 +5,31 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.2.0] - 2026-07-19
+
+In-app changelog, searchable settings, and a security/docs cleanup.
+
+### Added
+
+- **What's new modal**: after updating, the next launch shows the changelog
+  for the versions you skipped — once per vault, never on a fresh install.
+  A new **View changelog** command reopens the full changelog anytime.
+
+### Changed
+
+- Settings tab now uses Obsidian 1.13's declarative settings API on current
+  Obsidian versions, which makes InkedMark's settings searchable from the
+  settings window's search field (closes #3). Older Obsidian versions keep
+  the previous settings tab. The Paper width field now flags out-of-range
+  values with a callout (like the Endpoint URL field) instead of silently
+  ignoring them.
+
+### Security
+
+- Forced the transitive `adm-zip` dev/build dependency to 0.6.0
+  (GHSA-xcpc-8h2w-3j85). Build-time only — `adm-zip` was never part of the
+  plugin shipped to vaults.
+
 ## [1.1.0] - 2026-07-05
 
 Self-hosted recognition and one-click OpenRouter setup.

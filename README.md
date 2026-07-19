@@ -59,6 +59,8 @@ count, and zoom.
 - **Recognize handwriting in this note** — runs the selected recognition
   provider (see below).
 - **Zoom in / Zoom out / Fit / reset view**, **Toggle input debug overlay**.
+- **View changelog** — what changed in each release. After an update, the
+  news is shown once automatically.
 
 ### Handwriting recognition
 

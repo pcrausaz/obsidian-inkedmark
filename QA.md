@@ -125,6 +125,38 @@ inheritance actually holds on device:
       `obsidian://inkedmark-openrouter?code=x` with no pending connect shows a
       clean notice.
 
+## P1 — Settings tab (declarative on Obsidian ≥ 1.13)
+
+- [ ] All settings render in the same order as before, with the iPad Scribble
+      callout on iPad only and the support footer at the bottom.
+- [ ] Desktop only: settings search (top of the Obsidian settings window)
+      finds InkedMark settings by name (e.g. "highlighter opacity"). Mobile
+      has no settings search — nothing to verify there.
+- [ ] Switching Handwriting recognition to Cloud AI reveals the vendor section;
+      switching vendor to custom/openrouter swaps the endpoint/connect rows;
+      values survive a settings-window close/reopen.
+- [ ] Typing a bare hostname in Endpoint URL shows the "Incomplete endpoint
+      URL" callout live; a valid `http://` URL swaps it for the plain-HTTP
+      warning; `https://` shows neither.
+- [ ] Paper width: typing an out-of-range value (e.g. 99999999) keeps every
+      digit visible (no silent truncation) and shows the "Paper width out of
+      range" callout; the callout clears and the value persists once in range.
+- [ ] Highlighter opacity slider still maps to the same stroke transparency
+      (value shown 10–100, stored 0.1–1.0 — check data.json).
+- [ ] Toggling on-device recognition off while the TrOCR provider is selected
+      falls back to the Manual provider.
+- [ ] Input debug overlay toggle updates open ink views immediately.
+
+## P2 — What's new modal
+
+- [ ] With existing plugin data, lower `lastSeenVersion` in
+      `.obsidian/plugins/inkedmark/data.json` (e.g. to `1.0.0`), reload
+      Obsidian: the modal shows each missed release section once; a second
+      reload shows nothing.
+- [ ] Fresh install (delete `data.json`, reload): no modal.
+- [ ] **View changelog** command shows the full released changelog; markdown
+      (headings, bold, links) renders properly, including on iPad.
+
 ## P2 — Cross-cutting
 
 - [ ] Light and dark themes both legible (ink, paper, toolbar, selection box).

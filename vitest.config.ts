@@ -9,6 +9,7 @@ export default defineConfig({
       reporter: ["text", "lcov"],
       // Pure modules that the layered architecture exists to keep testable.
       include: [
+        "src/changelog.ts",
         "src/model/**/*.ts",
         "src/ink/stroke-builder.ts",
         "src/canvas/viewport.ts",

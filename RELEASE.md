@@ -38,9 +38,9 @@ the website deploy are automated; a few steps are inherently manual.
 
 ## Manual steps (not automatable)
 
-- **Demo GIFs / screenshots.** Record on a real iPad (pen + search), drop them in
-  `docs/assets/` (referenced by `docs/index.html` as `demo.gif`) and in the
-  README. The site hides the demo `<img>` until the asset exists.
+- **Demo media.** Record on a real iPad (pen + search). The site's hero plays
+  `docs/assets/demo.mp4` (poster `demo-poster.jpg`); the README embeds
+  `docs/assets/demo.gif`. Replace those files to update both.
 - **On-device QA.** Run `QA.md` on device before a public release; check the
   open [GitHub issues](https://github.com/pcrausaz/obsidian-inkedmark/issues).
 - **Community Plugins submission.** Open a PR against

@@ -64,6 +64,14 @@
   color: var(--text-normal);
 }
 
+/* Declarative settings rows (Obsidian ≥ 1.13) that render a full-width custom
+   block (callout, support footer) instead of a standard name/control row. */
+.setting-item.inkedmark-plain-row {
+  display: block;
+  border-top: none;
+  padding: 0;
+}
+
 /* Settings-tab wide text field (endpoint URL): stack the label above a
    full-width input so long URLs stay readable, especially on mobile. */
 .inkedmark-wide-text {

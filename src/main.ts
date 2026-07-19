@@ -37,8 +37,11 @@ import {
   generateCodeVerifier,
 } from "./recognition/openrouter-auth";
 import { ConfirmModal } from "./ui/confirm-modal";
+import { WhatsNewModal } from "./ui/whats-new-modal";
+import { changelogSince, releasedChangelog } from "./changelog";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
+import changelogMd from "../CHANGELOG.md";
 
 export default class InkedMarkPlugin extends Plugin {
   override settings!: InkedMarkSettings;
@@ -52,6 +55,12 @@ export default class InkedMarkPlugin extends Plugin {
    */
   private pendingOpenRouterVerifier: string | null = null;
   private settingTab: InkedMarkSettingTab | null = null;
+
+  /**
+   * Whether loadData() found existing plugin data. Distinguishes an update
+   * (show "What's new") from a fresh install (nothing is new to the user).
+   */
+  private hadSavedData = false;
 
   /**
    * Ink files the user explicitly toggled to the markdown view. Without this,
@@ -183,9 +192,18 @@ export default class InkedMarkPlugin extends Plugin {
       callback: () => void this.toggleDebugHud(),
     });
 
+    this.addCommand({
+      id: "view-changelog",
+      name: "View changelog",
+      callback: () => new WhatsNewModal(this.app, releasedChangelog(changelogMd), this).open(),
+    });
+
     // Swap the markdown view for the ink view whenever an ink file is shown.
     this.registerEvent(this.app.workspace.on("layout-change", () => this.switchInkLeaves()));
-    this.app.workspace.onLayoutReady(() => this.switchInkLeaves());
+    this.app.workspace.onLayoutReady(() => {
+      this.switchInkLeaves();
+      void this.maybeShowWhatsNew();
+    });
 
     this.settingTab = new InkedMarkSettingTab(this.app, this);
     this.addSettingTab(this.settingTab);
@@ -202,7 +220,24 @@ export default class InkedMarkPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     const data = (await this.loadData()) as Partial<InkedMarkSettings> | null;
+    this.hadSavedData = data !== null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+  }
+
+  /**
+   * One-time "What's new" modal after an update. Keyed off `lastSeenVersion`
+   * in plugin data — per vault, so a synced vault shows the news once, not
+   * once per device. Fresh installs just seed the version silently.
+   */
+  private async maybeShowWhatsNew(): Promise<void> {
+    const current = this.manifest.version;
+    const previous = this.settings.lastSeenVersion;
+    if (previous === current) return;
+    this.settings.lastSeenVersion = current;
+    await this.saveSettings();
+    if (!this.hadSavedData) return;
+    const news = changelogSince(changelogMd, previous || null);
+    if (news) new WhatsNewModal(this.app, news, this).open();
   }
 
   async saveSettings(): Promise<void> {
@@ -325,7 +360,7 @@ export default class InkedMarkPlugin extends Plugin {
     await this.saveSettings();
     new Notice("OpenRouter connected.");
     // Refresh the settings tab if it is currently visible.
-    if (this.settingTab?.containerEl.isConnected) this.settingTab.display();
+    if (this.settingTab?.containerEl.isConnected) this.settingTab.refresh();
   }
 
   /** Turn the input debug overlay on/off everywhere (settings toggle + command). */

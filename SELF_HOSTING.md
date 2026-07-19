@@ -79,10 +79,10 @@ Three things to know:
    second port (the desktop app's own server stays untouched):
 
    ```sh
-   OLLAMA_HOST=0.0.0.0:11435 ollama serve
+   OLLAMA_HOST=0.0.0.0:11500 ollama serve
    ```
 
-   and point the tunnel at port 11435. Some Ollama desktop builds have an
+   and point the tunnel at port 11500. Some Ollama desktop builds have an
    “Expose Ollama to the network” setting that does the same; the
    menu-bar-only macOS app has no settings UI. Two caveats: binding
    `0.0.0.0` also makes the port reachable from your LAN (your firewall
@@ -98,13 +98,13 @@ The two easy paths, in order of preference:
 2. On the server, run a network-facing Ollama (see point 3 above):
 
    ```sh
-   OLLAMA_HOST=0.0.0.0:11435 ollama serve
+   OLLAMA_HOST=0.0.0.0:11500 ollama serve
    ```
 
 3. Put TLS in front of it:
 
    ```sh
-   tailscale serve --bg 11435
+   tailscale serve --bg 11500
    ```
 
 4. Use the HTTPS URL Tailscale prints (e.g.
@@ -120,12 +120,12 @@ daily, skip the always-on setup and manage the server by hand:
 - **Start** (survives closing the terminal; dies at reboot/logout):
 
   ```sh
-  nohup env OLLAMA_HOST=0.0.0.0:11435 ollama serve \
+  nohup env OLLAMA_HOST=0.0.0.0:11500 ollama serve \
     > ~/Library/Logs/ollama-tailnet.log 2>&1 & disown
   ```
 
-- **Stop**: `kill $(lsof -tnP -iTCP:11435 -sTCP:LISTEN)`
-- **Check**: `curl http://localhost:11435/api/version` (or the tailnet HTTPS
+- **Stop**: `kill $(lsof -tnP -iTCP:11500 -sTCP:LISTEN)`
+- **Check**: `curl http://localhost:11500/api/version` (or the tailnet HTTPS
   URL from the client device).
 - The `tailscale serve` mapping can stay configured while the server is
   down — clients just get a 502 until you start it again, and InkedMark
@@ -144,7 +144,7 @@ then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.ollama-tailn
   <key>ProgramArguments</key>
   <array><string>/usr/local/bin/ollama</string><string>serve</string></array>
   <key>EnvironmentVariables</key>
-  <dict><key>OLLAMA_HOST</key><string>0.0.0.0:11435</string></dict>
+  <dict><key>OLLAMA_HOST</key><string>0.0.0.0:11500</string></dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
 </dict>
@@ -168,7 +168,7 @@ then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.ollama-tailn
   hostname is not enough. The settings field flags this as you type.
 - **"denied the request (HTTP 403)" through Tailscale/Cloudflare** — this is
   Ollama's localhost-only protection, not an API-key problem: run a
-  network-facing server (`OLLAMA_HOST=0.0.0.0:11435 ollama serve`, see the
+  network-facing server (`OLLAMA_HOST=0.0.0.0:11500 ollama serve`, see the
   iPad section above) and point the tunnel at it, then retry.
 - **"could not reach …"** — the server isn't running, or the URL isn't
   reachable from this device (see the iPad section above).

@@ -57,6 +57,8 @@ const context = await esbuild.context({
   ],
   format: "cjs",
   target: "es2020",
+  // CHANGELOG.md is bundled as text for the in-app "What's new" modal.
+  loader: { ".md": "text" },
   logLevel: "info",
   sourcemap: production ? false : "inline",
   treeShaking: true,

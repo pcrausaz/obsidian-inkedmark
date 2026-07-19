@@ -12,8 +12,12 @@ data.json
 # Test / coverage
 coverage/
 
-# Local dev deploy target (machine-specific vault path)
-.deploy-target
+# Local dev deploy target (machine-specific vault path), incl. parked
+# variants like .deploy-target.off
+.deploy-target*
+
+# Local agent workspace (session plans can contain private infra details)
+.claude/
 
 # Editor / OS
 .DS_Store

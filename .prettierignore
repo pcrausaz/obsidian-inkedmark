@@ -6,3 +6,4 @@ package-lock.json
 versions.json
 manifest.json
 SPECIFICATION.md
+.claude/

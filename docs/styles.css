@@ -86,7 +86,8 @@ code {
   margin-top: 40px;
 }
 
-.hero-demo img {
+.hero-demo img,
+.hero-demo video {
   max-width: 100%;
   border-radius: 12px;
   border: 1px solid var(--border);

@@ -1,3 +1,4 @@
 # Website assets
 
-Drop demo GIFs/screenshots here (e.g. demo.gif referenced by index.html).
+Demo media lives here: `demo.mp4` + `demo-poster.jpg` (hero video on
+index.html), `demo.gif` (embedded by the repo README), site posters.

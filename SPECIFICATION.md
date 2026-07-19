@@ -251,8 +251,8 @@ src/
     pointer-controller.ts  # pointer events, getCoalescedEvents/getPredictedEvents,
                            #   gesture routing, capture.
     palm-rejection.ts      # PURE state machine: pen vs touch arbitration.
-    tools/
-      pen.ts  eraser.ts  selection.ts  pan.ts   # tool strategies.
+                           # (Tool behavior lives in view/ink-view.ts + toolbar;
+                           #   panning is a gesture, not a tool strategy.)
 
   recognition/
     provider.ts            # RecognitionProvider interface (§10).
@@ -374,20 +374,46 @@ export interface RecognitionProvider {
 ```ts
 export interface InkedMarkSettings {
   pressureEnabled: boolean;        // default true
-  defaultTool: "pen" | "eraser" | "select" | "pan";
+  defaultTool: "pen" | "highlighter" | "eraser" | "select";
   customColors: string[];          // hex
   defaultColor: string;
   defaultSize: number;             // index/value into SIZES
   highlighterAlpha: number;        // 0..1, default ~0.4
   paperWidth: number;              // logical px width of the roll, default 1024
-  recognitionProviderId: string;   // "manual" in v1
+  recognitionProviderId: string;   // "manual" | "llm" | "trocr"
   twoFileStorage: boolean;         // future; default false (single-file)
   desynchronizedCanvas: boolean;   // default true; escape hatch if platform buggy
+  debugHud: boolean;               // input diagnostics overlay
+  scribbleNoticeShown: boolean;    // one-time iPad notice
+  lastSeenVersion: string;         // gates the "What's new" modal (§9)
+  // Cloud recognition (BYOK) — see §7:
+  llmVendor: "anthropic" | "openai" | "google" | "openrouter" | "custom";
+  llmModel: string;                // "" = vendor default
+  llmApiKey: string;               // cloud vendors
+  llmBaseUrl: string;              // custom vendor base URL
+  llmCustomApiKey: string;         // custom endpoint only — never the cloud key
+  cloudConsentGiven: boolean;      // scoped consent: named cloud vendors
+  customConsentGiven: boolean;     // scoped consent: user-configured endpoint
+  autoRecognize: boolean;          // idle background recognition
+  // Experimental on-device recognition (desktop only):
+  experimentalTrocr: boolean;
+  trocrModel: "small" | "base";
 }
 ```
+(Authoritative shape: `src/settings.ts` — keep this sketch in sync.)
 Settings persist via `loadData`/`saveData` (plugin `data.json`), independent of
 any note. A single source of truth for `version` lives in `manifest.json` (see
 §11 tooling) — no `package.json` drift.
+
+**Settings tab rendering (issue #3):** the tab implements both settings APIs.
+On Obsidian ≥ 1.13 it renders declaratively from `getSettingDefinitions()`
+(which also makes settings searchable); the legacy imperative `display()` is
+kept as the documented fallback for older installs, since `minAppVersion` is
+still 1.7.2. The two paths must be kept in sync when settings change; the
+legacy path can be deleted when `minAppVersion` reaches 1.13.0. Value
+mapping/side effects (slider percent ↔ alpha, CSV custom colors, vendor-change
+cancelling an OpenRouter connect, debug HUD propagation) live in
+`getControlValue`/`setControlValue` overrides.
 
 ---
 
@@ -395,15 +421,21 @@ any note. A single source of truth for `version` lives in `manifest.json` (see
 
 - **Commands** (palette): `Create handwriting note`, `Insert inline handwriting`,
   `Toggle canvas / markdown view`, `Recognize handwriting in this note` (no-op in
-  v1), `Fit / Reset view`.
+  v1), `Fit / Reset view`, `View changelog`.
+- **What's new:** CHANGELOG.md is bundled as text at build time; after an
+  update, the first launch shows the sections newer than the persisted
+  `lastSeenVersion` (pure parsing in `src/changelog.ts`; modal in
+  `src/ui/whats-new-modal.ts`). Per vault, not per device — a synced vault
+  announces once. Fresh installs seed the version silently.
 - **Ribbon:** create handwriting note.
-- **Toolbar** (`view/toolbar.ts`): pen, highlighter, eraser, select, pan;
+- **Toolbar** (`view/toolbar.ts`): pen, highlighter, eraser, select;
   color palette + custom-color add/remove; sizes; pressure toggle; undo/redo;
   zoom in/out/fit/reset; delete selection; clear. Mobile-safe icons (bundled
   Lucide via `addIcon`, explicit SVG width/height attributes, text-label
   fallback) — carry forward the prior plugin's hard-won WebKit fixes.
-- **Keyboard:** `P` pen, `H`(ighlighter)/`E` eraser, `V` select, space/`G` pan,
-  `⌘/Ctrl+Z`/`⇧Z` undo/redo, `Delete` removes selection. Guard against firing
+- **Keyboard:** `P` pen, `H` highlighter, `E` eraser, `V` select,
+  `⌘/Ctrl+Z`/`⇧Z` undo/redo, `Delete`/`Backspace` removes selection (panning is
+  a gesture — two-finger drag / wheel — not a tool). Guard against firing
   while a text input/contenteditable is focused and only when the InkedMark leaf
   is active.
 
@@ -463,9 +495,9 @@ investing in 0.2+. Record the measurement in the repo.
 
 ### Dependencies
 - Runtime: `perfect-freehand`, `fflate`.
-- Dev: `obsidian`, `esbuild`, `typescript`, `@typescript-eslint/*`, `eslint`,
-  `prettier`, `vitest`, `@vitest/coverage-v8`, `@types/node`, `builtin-modules`,
-  `tslib`.
+- Dev: `obsidian`, `esbuild`, `typescript`, `typescript-eslint`, `eslint`,
+  `prettier`, `vitest`, `@vitest/coverage-v8`, `@types/node`, `tslib`
+  (externals list uses Node's own `module.builtinModules` — see 1.0.2).
 
 ### GitHub Actions (`.github/workflows/`)
 1. **`ci.yml`** — on push + PR: `npm ci` → `lint` → `typecheck` → `test` →
