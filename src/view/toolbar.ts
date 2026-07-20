@@ -107,7 +107,7 @@ export class Toolbar {
     );
 
     // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
-    this.statusEl = this.root.createEl("span", { cls: "inkedmark-status" });
+    this.statusEl = this.root.createSpan({ cls: "inkedmark-status" });
   }
 
   /** Set the right-aligned status text (build id, stroke count, …). */

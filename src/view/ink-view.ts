@@ -456,7 +456,7 @@ export class InkView extends TextFileView {
 
     // Text-layer panel: the searchable markdown body (transcription, links, tags).
     this.textPanelEl = root.createDiv({ cls: "inkedmark-textpanel" });
-    this.textPanelEl.createEl("div", {
+    this.textPanelEl.createDiv({
       cls: "inkedmark-textpanel-label",
       text: "Text layer — searchable transcription, [[links]], #tags",
     });

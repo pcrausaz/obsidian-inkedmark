@@ -5,6 +5,23 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.2.1] - 2026-07-20
+
+Maintenance release — passes the community-directory source review for 1.2.0's
+settings changes. No feature changes.
+
+### Changed
+
+- Calls to Obsidian 1.13 settings APIs are now version-guarded with
+  `requireApiVersion`, the pattern the plugin review recognizes for hybrid
+  code (`minAppVersion` stays 1.7.2 — older Obsidian versions keep working).
+- DOM creation switched to Obsidian's `createEl`/`createDiv`/`createSpan`
+  helpers everywhere; internal re-renders no longer go through the
+  deprecated `display()` entry point.
+- CI now runs the official `eslint-plugin-obsidianmd` review ruleset
+  (`npm run lint:review`), so directory-review findings surface before a
+  release instead of after.
+
 ## [1.2.0] - 2026-07-19
 
 In-app changelog, searchable settings, and a security/docs cleanup.

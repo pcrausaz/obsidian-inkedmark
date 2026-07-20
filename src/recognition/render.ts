@@ -59,7 +59,9 @@ export function renderStrokesForRecognition(
   const worldH = bounds.maxY - bounds.minY + pad * 2;
   const scale = Math.min(maxEdge / Math.max(worldW, worldH), MAX_UPSCALE);
 
-  const canvas = activeDocument.createElement("canvas");
+  // Offscreen canvas: never inserted into a DOM, so the main-window createEl
+  // global is correct even when the ink view lives in a popout window.
+  const canvas = createEl("canvas");
   canvas.width = Math.max(1, Math.round(worldW * scale));
   canvas.height = Math.max(1, Math.round(worldH * scale));
   const ctx = canvas.getContext("2d");

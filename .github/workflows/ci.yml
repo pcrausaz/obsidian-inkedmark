@@ -28,6 +28,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Lint (plugin-review parity)
+        run: npm run lint:review
+
       - name: Typecheck
         run: npm run typecheck
 
