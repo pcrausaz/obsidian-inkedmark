@@ -5,7 +5,10 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.2.3] - 2026-07-24
+
+Maintenance release: dependency advisories cleared and the Cloud AI vendor
+wiring consolidated. No user-visible behavior changes.
 
 ### Changed
 
