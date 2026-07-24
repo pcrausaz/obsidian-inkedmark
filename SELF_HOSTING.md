@@ -64,6 +64,44 @@ below.)
   URL, the model name the server expects, and a key only if the server
   requires one.
 
+## Option 3 — A hosted OpenAI-compatible endpoint
+
+The **Custom endpoint** vendor also works with servers you _don't_ run. This
+is not self-hosting: your ink is rendered to an image and sent to whoever
+operates that endpoint, under their privacy policy, not yours. Use it when you
+want a model that isn't on the built-in vendor list — and read their terms
+first.
+
+**Hetzner Inference** (free while it is an experiment, EU-hosted) is a
+known-good example:
+
+1. Create an endpoint and an API key in the
+   [Hetzner Inference console](https://experiments.hetzner.com/docs/inference).
+2. In InkedMark settings: **Handwriting recognition → Cloud AI**, vendor
+   **Custom endpoint (OpenAI-compatible)**, endpoint URL
+   `https://inference.hetzner.com/api/v1`, API key the endpoint key from the
+   console.
+3. **Set the model name exactly as the service lists it** — for Hetzner today
+   that is `Qwen/Qwen3.6-35B-A3B-FP8`, capitalization included. This is the
+   one trap: leaving the field on InkedMark's Ollama-shaped default
+   (`qwen2.5vl:7b`) returns `HTTP 403 {"error":"model use not permitted"}`,
+   which reads like a rejected API key but is not. `GET /api/v1/models` with
+   your key lists what the endpoint will accept.
+
+Quality on handwriting has been good in practice — better than the local 7–8B
+class, short of the cloud frontier models.
+
+Two things to expect from reasoning models like this one, which are common on
+such services:
+
+- Thinking tokens count against the response budget. InkedMark caps output at
+  8192 tokens per page; if a model spends all of it reasoning, recognition
+  fails with an explicit "hit InkedMark's output limit" message rather than
+  writing a half-finished transcription into your note. Recognize a smaller
+  selection, or pick a non-reasoning model.
+- Prices and model lists on experimental services change without notice, and
+  a model that disappears comes back as that same 403.
+
 ## Reaching your server from an iPad
 
 Three things to know:
@@ -170,6 +208,15 @@ then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.ollama-tailn
   Ollama's localhost-only protection, not an API-key problem: run a
   network-facing server (`OLLAMA_HOST=0.0.0.0:11500 ollama serve`, see the
   iPad section above) and point the tunnel at it, then retry.
+- **"denied the request (HTTP 403)" from a hosted endpoint** — usually the
+  model name, not the key: many services reject an unknown or unentitled model
+  with a 403 (Hetzner answers `{"error":"model use not permitted"}`). Check the
+  name against the service's model list, exact capitalization included. A
+  missing or wrong key is normally a 401.
+- **"hit InkedMark's output limit"** — the model ran out of response budget
+  before finishing, most often a reasoning model spending it on thinking
+  tokens. Recognize a smaller selection, or switch to a model that doesn't
+  reason.
 - **"could not reach …"** — the server isn't running, or the URL isn't
   reachable from this device (see the iPad section above).
 - **HTTP 404** — the endpoint URL is missing its `/v1` segment (Ollama and

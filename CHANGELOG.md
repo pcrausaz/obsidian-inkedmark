@@ -5,6 +5,27 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Fixed
+
+- Cloud AI recognition now detects a response that was cut off by the output
+  token limit and says so, instead of silently writing a half-finished
+  transcription into the note (or reporting the generic "returned no
+  transcription"). Reasoning models made this reachable: their thinking tokens
+  count against the same budget. ([#10](https://github.com/pcrausaz/obsidian-inkedmark/issues/10))
+
+### Changed
+
+- The per-page output budget for Cloud AI recognition is now 8192 tokens, up
+  from 2048. It is a ceiling rather than an allocation, so unused headroom
+  costs nothing; the old value left little room for models that reason before
+  answering.
+- `SELF_HOSTING.md` documents using the Custom endpoint vendor with a hosted
+  OpenAI-compatible service, with Hetzner Inference as a worked example —
+  including the exact-case model name, whose absence returns a 403 that looks
+  like an API-key failure.
+
 ## [1.2.1] - 2026-07-20
 
 Maintenance release — passes the community-directory source review for 1.2.0's

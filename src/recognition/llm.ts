@@ -15,6 +15,7 @@ import type { RecognitionProvider, RecognitionRequest, RecognitionResult } from 
 import { postJson } from "./http";
 import {
   LLM_PROVIDER_ID,
+  MAX_OUTPUT_TOKENS,
   type LlmVendor,
   buildLlmRequest,
   buildRecognitionPrompt,
@@ -22,6 +23,7 @@ import {
   defaultModelFor,
   describeLlmTarget,
   extractLlmText,
+  isTruncatedLlmResponse,
 } from "./llm-request";
 import { renderStrokesForRecognition } from "./render";
 
@@ -100,6 +102,17 @@ export class LlmProvider implements RecognitionProvider {
       json = response.json;
     } catch {
       throw new Error(`${vendorLabel} returned an unreadable response.`);
+    }
+
+    // Checked before the empty-text case: a truncated response is a different
+    // problem than a refused one, and the generic message sends users looking
+    // at their key or their ink instead of the output cap.
+    if (isTruncatedLlmResponse(cfg.vendor, json)) {
+      throw new Error(
+        `${vendorLabel} hit InkedMark's ${MAX_OUTPUT_TOKENS}-token output limit before ` +
+          "finishing, so the transcription was cut off and discarded. Recognize a smaller " +
+          "selection, or pick a model that does not spend its output budget on reasoning.",
+      );
     }
 
     const text = cleanTranscription(extractLlmText(cfg.vendor, json));

@@ -9,6 +9,7 @@ import {
   describeLlmTarget,
   extractLlmText,
   isPlainHttpUrl,
+  isTruncatedLlmResponse,
 } from "../../src/recognition/llm-request";
 
 const base = { model: "test-model", apiKey: "sk-test", imageBase64: "AAAA", prompt: "transcribe" };
@@ -200,6 +201,45 @@ describe("extractLlmText", () => {
     expect(extractLlmText("anthropic", null)).toBe("");
     expect(extractLlmText("openai", { choices: [] })).toBe("");
     expect(extractLlmText("google", { candidates: [{}] })).toBe("");
+  });
+});
+
+describe("isTruncatedLlmResponse", () => {
+  it("detects each vendor's out-of-tokens signal", () => {
+    expect(isTruncatedLlmResponse("anthropic", { stop_reason: "max_tokens" })).toBe(true);
+    expect(isTruncatedLlmResponse("openai", { choices: [{ finish_reason: "length" }] })).toBe(true);
+    expect(isTruncatedLlmResponse("openrouter", { choices: [{ finish_reason: "length" }] })).toBe(
+      true,
+    );
+    expect(isTruncatedLlmResponse("google", { candidates: [{ finishReason: "MAX_TOKENS" }] })).toBe(
+      true,
+    );
+  });
+
+  it("is false for a response that finished normally", () => {
+    expect(isTruncatedLlmResponse("anthropic", { stop_reason: "end_turn" })).toBe(false);
+    expect(isTruncatedLlmResponse("openai", { choices: [{ finish_reason: "stop" }] })).toBe(false);
+    expect(isTruncatedLlmResponse("google", { candidates: [{ finishReason: "STOP" }] })).toBe(
+      false,
+    );
+  });
+
+  it("flags a reasoning model that spent the whole budget thinking", () => {
+    // vLLM puts the chain-of-thought in `reasoning`, which bills against the
+    // cap: content comes back null with no other hint that anything is wrong.
+    const json = {
+      choices: [
+        { message: { role: "assistant", content: null, reasoning: "…" }, finish_reason: "length" },
+      ],
+    };
+    expect(isTruncatedLlmResponse("custom", json)).toBe(true);
+    expect(extractLlmText("custom", json)).toBe("");
+  });
+
+  it("is false for malformed payloads", () => {
+    expect(isTruncatedLlmResponse("anthropic", null)).toBe(false);
+    expect(isTruncatedLlmResponse("openai", { choices: [] })).toBe(false);
+    expect(isTruncatedLlmResponse("google", { candidates: [{}] })).toBe(false);
   });
 });
 

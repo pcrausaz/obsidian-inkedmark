@@ -29,8 +29,12 @@ export const DEFAULT_MODELS: Record<LlmVendor, string> = {
   custom: "qwen2.5vl:7b",
 };
 
-/** Output budget for a page transcription. */
-const MAX_OUTPUT_TOKENS = 2048;
+/**
+ * Output budget for a page transcription. A ceiling, not an allocation —
+ * unused headroom costs nothing, and reasoning models spend a large part of it
+ * on thinking tokens before the transcription itself starts.
+ */
+export const MAX_OUTPUT_TOKENS = 8192;
 
 export function defaultModelFor(vendor: LlmVendor): string {
   return DEFAULT_MODELS[vendor];
@@ -214,6 +218,29 @@ export function buildLlmRequest(input: LlmRequestInput): LlmHttpRequest {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * True when the model stopped because it hit `MAX_OUTPUT_TOKENS` rather than
+ * because it finished. Worth its own check: a truncated response either drops
+ * a partial transcription into the note as if it were complete, or — when a
+ * reasoning model spends the whole budget thinking — carries no text at all.
+ */
+export function isTruncatedLlmResponse(vendor: LlmVendor, json: unknown): boolean {
+  if (!isRecord(json)) return false;
+
+  if (vendor === "anthropic") return json.stop_reason === "max_tokens";
+
+  if (vendor === "openai" || vendor === "openrouter" || vendor === "custom") {
+    const choices = json.choices;
+    if (!Array.isArray(choices) || !isRecord(choices[0])) return false;
+    return choices[0].finish_reason === "length";
+  }
+
+  // google
+  const candidates = json.candidates;
+  if (!Array.isArray(candidates) || !isRecord(candidates[0])) return false;
+  return candidates[0].finishReason === "MAX_TOKENS";
 }
 
 /** Extract the transcription text from a vendor response, or "" if absent. */

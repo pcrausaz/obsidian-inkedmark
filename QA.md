@@ -120,6 +120,12 @@ inheritance actually holds on device:
 - [ ] Custom endpoint on iPad over HTTPS (e.g. Tailscale): recognition works;
       an `http://` URL shows the plain-HTTP warning callout; the Endpoint URL
       field is full-width and readable.
+- [ ] Custom endpoint, hosted service (e.g. Hetzner Inference): recognition
+      works with the exact-case model name; an unknown model name yields the
+      endpoint's 403, and nothing is written to the managed section.
+- [ ] Output limit: with a reasoning model on a dense page, a cut-off response
+      shows the "hit InkedMark's output limit" notice and leaves the managed
+      section untouched — no partial transcription is written.
 - [ ] Connect OpenRouter: browser opens, approving stores a key and sets the
       vendor, and recognition works; canceling in the browser is harmless;
       `obsidian://inkedmark-openrouter?code=x` with no pending connect shows a
