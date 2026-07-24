@@ -5,6 +5,19 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Security
+
+- Build-time dependency updates clearing five Dependabot alerts: `postcss`
+  (path traversal, via vite/vitest), `brace-expansion` (ReDoS, two ranges via
+  eslint and the coverage tooling), `protobufjs` (DoS, via onnxruntime-web),
+  and `sharp` (inherited libvips CVEs, forced to ^0.35.0 by an `overrides`
+  entry since transformers.js still requires ^0.34.5). None of these reach a
+  vault: an esbuild metafile confirms `sharp`, `protobufjs`, and
+  `onnxruntime-node` are absent from the shipped `main.js`, which uses the
+  browser/WASM backend. No plugin behavior changes.
+
 ## [1.2.2] - 2026-07-24
 
 Cloud AI recognition no longer fails silently when a model runs out of output
