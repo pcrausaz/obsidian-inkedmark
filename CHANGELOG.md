@@ -5,7 +5,11 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.2.2] - 2026-07-24
+
+Cloud AI recognition no longer fails silently when a model runs out of output
+budget — which reasoning models, increasingly common on OpenAI-compatible
+services, hit routinely.
 
 ### Fixed
 
