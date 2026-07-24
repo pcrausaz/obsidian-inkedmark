@@ -7,6 +7,13 @@ extracted from the matching section of this file by `release.yml`.
 
 ## [Unreleased]
 
+### Changed
+
+- Cloud AI vendors are now defined by a single `VENDORS` descriptor table
+  instead of per-vendor conditionals spread across four files. No behavior
+  change — adding a vendor is one entry rather than a dozen edits.
+  ([#7](https://github.com/pcrausaz/obsidian-inkedmark/issues/7))
+
 ### Security
 
 - Build-time dependency updates clearing five Dependabot alerts: `postcss`

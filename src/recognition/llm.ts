@@ -24,6 +24,7 @@ import {
   describeLlmTarget,
   extractLlmText,
   isTruncatedLlmResponse,
+  VENDORS,
 } from "./llm-request";
 import { renderStrokesForRecognition } from "./render";
 
@@ -45,12 +46,12 @@ export class LlmProvider implements RecognitionProvider {
 
   async recognize(req: RecognitionRequest): Promise<RecognitionResult> {
     const cfg = this.getConfig();
+    const vendor = VENDORS[cfg.vendor];
     const vendorLabel = describeLlmTarget(cfg.vendor, cfg.baseUrl);
-    if (cfg.vendor === "custom") {
-      if (!cfg.baseUrl.trim()) {
-        throw new Error("no endpoint URL set — add one in InkedMark settings.");
-      }
-    } else if (!cfg.apiKey.trim()) {
+    if (vendor.userEndpoint && !cfg.baseUrl.trim()) {
+      throw new Error("no endpoint URL set — add one in InkedMark settings.");
+    }
+    if (vendor.requiresKey && !cfg.apiKey.trim()) {
       throw new Error(`no API key set for ${vendorLabel} — add one in InkedMark settings.`);
     }
 
@@ -72,7 +73,7 @@ export class LlmProvider implements RecognitionProvider {
     } catch (err) {
       const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
       throw new Error(
-        cfg.vendor === "custom"
+        vendor.userEndpoint
           ? `could not reach ${vendorLabel} — is the server running and reachable ` +
               `from this device?${detail}`
           : `could not reach ${vendorLabel} — check your network connection.${detail}`,
@@ -86,7 +87,7 @@ export class LlmProvider implements RecognitionProvider {
         // addressed to localhost unless network access is enabled, so a
         // tunnel/proxy hostname gets an empty 403).
         throw new Error(
-          cfg.vendor === "custom"
+          vendor.userEndpoint
             ? `${vendorLabel} denied the request (HTTP ${response.status}). If the server needs an ` +
                 "API key, set it in settings; if it sits behind a tunnel or proxy, allow " +
                 "non-localhost requests (Ollama: serve with OLLAMA_HOST=0.0.0.0 or enable " +

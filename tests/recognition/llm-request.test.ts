@@ -10,6 +10,9 @@ import {
   extractLlmText,
   isPlainHttpUrl,
   isTruncatedLlmResponse,
+  type LlmVendor,
+  VENDOR_LABELS,
+  VENDORS,
 } from "../../src/recognition/llm-request";
 
 const base = { model: "test-model", apiKey: "sk-test", imageBase64: "AAAA", prompt: "transcribe" };
@@ -260,6 +263,73 @@ describe("prompt & cleanup", () => {
     for (const vendor of ["anthropic", "openai", "google", "openrouter", "custom"] as const) {
       expect(defaultModelFor(vendor)).toBe(DEFAULT_MODELS[vendor]);
       expect(DEFAULT_MODELS[vendor].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("VENDORS descriptor table", () => {
+  const ids = Object.keys(VENDORS) as LlmVendor[];
+
+  it("describes every vendor completely", () => {
+    for (const id of ids) {
+      const v = VENDORS[id];
+      expect(v.label.length, id).toBeGreaterThan(0);
+      expect(v.defaultModel.length, id).toBeGreaterThan(0);
+      expect(["anthropic", "openai", "google"], id).toContain(v.dialect);
+    }
+  });
+
+  it("derives VENDOR_LABELS and DEFAULT_MODELS from the table", () => {
+    // The two exported records are projections, not second sources of truth.
+    expect(Object.keys(VENDOR_LABELS).sort()).toEqual(ids.sort());
+    for (const id of ids) {
+      expect(VENDOR_LABELS[id]).toBe(VENDORS[id].label);
+      expect(DEFAULT_MODELS[id]).toBe(VENDORS[id].defaultModel);
+    }
+  });
+
+  it("marks exactly one user-supplied endpoint and one oauth vendor", () => {
+    // Both flags drive UI and security decisions (separate key slot, separate
+    // consent scope, the Connect button) — a second vendor claiming either
+    // would need those call sites revisited.
+    expect(ids.filter((id) => VENDORS[id].userEndpoint)).toEqual(["custom"]);
+    expect(ids.filter((id) => VENDORS[id].oauthConnect)).toEqual(["openrouter"]);
+  });
+
+  it("requires a key everywhere except the user-supplied endpoint", () => {
+    for (const id of ids) {
+      expect(VENDORS[id].requiresKey, id).toBe(!VENDORS[id].userEndpoint);
+    }
+  });
+
+  it("sends named vendors over https", () => {
+    for (const id of ids.filter((i) => !VENDORS[i].userEndpoint)) {
+      expect(VENDORS[id].url({ model: "m" }), id).toMatch(/^https:\/\//);
+    }
+  });
+
+  it("builds a request for every vendor with the image block first", () => {
+    for (const id of ids) {
+      const req = buildLlmRequest({ ...base, vendor: id, baseUrl: "http://localhost:11434/v1" });
+      expect(req.headers["content-type"], id).toBe("application/json");
+      expect(req.url.length, id).toBeGreaterThan(0);
+      const body = req.body as {
+        messages?: Array<{ content: Array<{ type?: string }> }>;
+        contents?: Array<{ parts: Array<Record<string, unknown>> }>;
+      };
+      const first = body.messages
+        ? body.messages[0].content[0].type
+        : Object.keys(body.contents![0].parts[0])[0];
+      expect(first, id).toMatch(/^(image|image_url|inline_data)$/);
+    }
+  });
+
+  it("enforces key requirements from the table", () => {
+    for (const id of ids) {
+      const call = () =>
+        buildLlmRequest({ ...base, vendor: id, apiKey: "", baseUrl: "http://localhost:11434/v1" });
+      if (VENDORS[id].requiresKey) expect(call, id).toThrow(/API key/);
+      else expect(call, id).not.toThrow();
     }
   });
 });

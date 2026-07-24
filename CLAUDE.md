@@ -48,6 +48,10 @@ either without being asked.
 - **Recognition providers** implement `RecognitionProvider`
   (`src/recognition/provider.ts`); the registry seeds Manual, and providers
   needing settings are registered in `main.ts` `onload()`.
+- **BYOK vendors** are one entry in the `VENDORS` table
+  (`src/recognition/llm-request.ts`, see SPECIFICATION §7.1) — never a new
+  `vendor === "…"` branch. Callers read the descriptor's flags (`requiresKey`,
+  `userEndpoint`, `oauthConnect`) and its `dialect`.
 - **Text layer**: transcriptions are written only inside the
   `<!--inkedmark-text-->` marker block (`src/recognition/text-layer.ts`);
   never touch user prose outside it.

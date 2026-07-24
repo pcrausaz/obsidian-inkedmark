@@ -367,6 +367,28 @@ export interface RecognitionProvider {
   into the text layer via `recognition/text-layer.ts`. The user can always edit
   the result.
 
+### 7.1 BYOK vendor descriptors
+
+The cloud provider's vendors live in one `VENDORS` record in
+`recognition/llm-request.ts` — label, default model, wire dialect, URL builder,
+headers, and three behavioral flags:
+
+- `requiresKey` — false only where a key is genuinely optional (self-hosted).
+- `userEndpoint` — the user supplies the URL. Such a destination is untrusted
+  in a way a named vendor is not, so it earns its own API key slot
+  (`llmCustomApiKey`) and its own consent scope; a cloud vendor's key must
+  never reach an arbitrary URL.
+- `oauthConnect` — browser-based key provisioning (OpenRouter PKCE) exists.
+
+`dialect` (`anthropic` | `openai` | `google`) decides request body and response
+parsing, so vendors sharing a wire format share one code path — OpenRouter and
+any OpenAI-compatible server are the same dialect. `VENDOR_LABELS` and
+`DEFAULT_MODELS` are projections of this table, not separate sources of truth.
+
+**Adding a vendor is one entry here.** The IO shell, settings UI, and consent
+flow read the flags rather than testing the vendor id, so nothing else needs
+touching unless the vendor needs a genuinely new dialect.
+
 ---
 
 ## 8. Settings
@@ -666,16 +688,6 @@ Suggested kickoff for the new session:
 
 ## 17. Open decisions (revisit with data)
 
-- **Per-vendor descriptor table for recognition vendors.** The BYOK vendors
-  (anthropic/openai/google/openrouter/custom) are wired through per-vendor
-  conditionals spread across `llm-request.ts`, `llm.ts`, `settings.ts`, and
-  `main.ts` (key optionality, URL building, response dialect, consent
-  wording, settings UI) — at least seven special-case sites confirmed by
-  review. Consolidate into one `VENDORS` record (label, default model, URL
-  builder, requiresKey, dialect) **before adding another vendor**.
-  Deliberately deferred from the self-hosting branch: refactoring four files
-  immediately after field-testing traded a working, tested state for style.
-  Tracked in #7.
 - **Single-file vs two-file storage.** Committed to single-file `.ink.md`.
   Revisit only if real-world search-index noise from the base64 block proves
   material; the fallback is `twoFileStorage` (text `.ink.md` + binary

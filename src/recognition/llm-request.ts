@@ -12,22 +12,117 @@ export const LLM_PROVIDER_ID = "llm-byok";
 
 export type LlmVendor = "anthropic" | "openai" | "google" | "openrouter" | "custom";
 
-export const VENDOR_LABELS: Record<LlmVendor, string> = {
-  anthropic: "Anthropic (Claude)",
-  openai: "OpenAI (GPT)",
-  google: "Google (Gemini)",
-  openrouter: "OpenRouter (any model)",
-  custom: "Custom endpoint (OpenAI-compatible)",
+/**
+ * Wire format a vendor speaks. Several vendors share one dialect — OpenRouter
+ * and any self-hosted OpenAI-compatible server are the OpenAI dialect — so
+ * request bodies and response parsing key off this, not off the vendor.
+ */
+export type LlmDialect = "anthropic" | "openai" | "google";
+
+/** Where a request goes; `baseUrl` is only set for user-supplied endpoints. */
+export interface VendorUrlInput {
+  model: string;
+  baseUrl?: string;
+}
+
+/**
+ * Everything that varies between vendors, in one place. Adding a vendor should
+ * mean adding one entry here — the IO shell (`llm.ts`), the settings UI, and
+ * `main.ts` all read these flags instead of re-testing the vendor id.
+ */
+export interface VendorDescriptor {
+  /** Dropdown label, and how the vendor is named in user-facing messages. */
+  label: string;
+  /** Starting point for the model field; the user can override it. */
+  defaultModel: string;
+  /** Request/response wire format. */
+  dialect: LlmDialect;
+  /** False only where a key is genuinely optional (self-hosted servers). */
+  requiresKey: boolean;
+  /**
+   * True when the user supplies the endpoint. Such a destination is untrusted
+   * in a way a named vendor is not, so it gets its own API key slot and its
+   * own consent scope rather than inheriting a cloud vendor's.
+   */
+  userEndpoint: boolean;
+  /** Browser-based key provisioning (OpenRouter PKCE) is available. */
+  oauthConnect: boolean;
+  /** Endpoint for a request. */
+  url(input: VendorUrlInput): string;
+  /** Auth and any vendor-specific headers. `content-type` is added for all. */
+  headers(apiKey: string): Record<string, string>;
+}
+
+export const VENDORS: Record<LlmVendor, VendorDescriptor> = {
+  anthropic: {
+    label: "Anthropic (Claude)",
+    defaultModel: "claude-opus-4-8",
+    dialect: "anthropic",
+    requiresKey: true,
+    userEndpoint: false,
+    oauthConnect: false,
+    url: () => "https://api.anthropic.com/v1/messages",
+    headers: (apiKey) => ({ "x-api-key": apiKey, "anthropic-version": "2023-06-01" }),
+  },
+  openai: {
+    label: "OpenAI (GPT)",
+    defaultModel: "gpt-4o-mini",
+    dialect: "openai",
+    requiresKey: true,
+    userEndpoint: false,
+    oauthConnect: false,
+    url: () => "https://api.openai.com/v1/chat/completions",
+    headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+  },
+  google: {
+    label: "Google (Gemini)",
+    defaultModel: "gemini-2.5-flash",
+    dialect: "google",
+    requiresKey: true,
+    userEndpoint: false,
+    oauthConnect: false,
+    url: ({ model }) =>
+      "https://generativelanguage.googleapis.com/v1beta/models/" +
+      `${encodeURIComponent(model)}:generateContent`,
+    headers: (apiKey) => ({ "x-goog-api-key": apiKey }),
+  },
+  openrouter: {
+    label: "OpenRouter (any model)",
+    defaultModel: "google/gemini-2.5-flash",
+    dialect: "openai",
+    requiresKey: true,
+    userEndpoint: false,
+    oauthConnect: true,
+    url: () => "https://openrouter.ai/api/v1/chat/completions",
+    // Attribution headers are OpenRouter-specific; other servers ignore them.
+    headers: (apiKey) => ({
+      authorization: `Bearer ${apiKey}`,
+      "http-referer": "https://inkedmark.com",
+      "x-title": "InkedMark",
+    }),
+  },
+  custom: {
+    label: "Custom endpoint (OpenAI-compatible)",
+    defaultModel: "qwen2.5vl:7b",
+    dialect: "openai",
+    requiresKey: false,
+    userEndpoint: true,
+    oauthConnect: false,
+    url: ({ baseUrl }) => chatCompletionsUrl(baseUrl ?? ""),
+    // Most self-hosted servers need no key; send the header only when set.
+    headers: (apiKey): Record<string, string> =>
+      apiKey.trim() ? { authorization: `Bearer ${apiKey}` } : {},
+  },
 };
 
+export const VENDOR_LABELS: Record<LlmVendor, string> = Object.fromEntries(
+  Object.entries(VENDORS).map(([id, v]) => [id, v.label]),
+) as Record<LlmVendor, string>;
+
 /** Editable in settings; these are only the starting points. */
-export const DEFAULT_MODELS: Record<LlmVendor, string> = {
-  anthropic: "claude-opus-4-8",
-  openai: "gpt-4o-mini",
-  google: "gemini-2.5-flash",
-  openrouter: "google/gemini-2.5-flash",
-  custom: "qwen2.5vl:7b",
-};
+export const DEFAULT_MODELS: Record<LlmVendor, string> = Object.fromEntries(
+  Object.entries(VENDORS).map(([id, v]) => [id, v.defaultModel]),
+) as Record<LlmVendor, string>;
 
 /**
  * Output budget for a page transcription. A ceiling, not an allocation —
@@ -107,7 +202,8 @@ export function isPlainHttpUrl(url: string): boolean {
 
 /** Human-readable description of where recognition requests are sent. */
 export function describeLlmTarget(vendor: LlmVendor, baseUrl?: string): string {
-  if (vendor !== "custom") return VENDOR_LABELS[vendor];
+  const descriptor = VENDORS[vendor];
+  if (!descriptor.userEndpoint) return descriptor.label;
   try {
     return `your configured endpoint (${new URL((baseUrl ?? "").trim()).host})`;
   } catch {
@@ -121,99 +217,62 @@ export interface LlmHttpRequest {
   body: unknown;
 }
 
-/** Build the vendor-specific HTTP request. Throws if the API key is missing (key is optional for `custom`). */
+/** Request body per wire dialect — the image block comes first in all three. */
+const DIALECT_BODIES: Record<LlmDialect, (input: LlmRequestInput) => unknown> = {
+  anthropic: (input) => ({
+    model: input.model,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: input.imageBase64 },
+          },
+          { type: "text", text: input.prompt },
+        ],
+      },
+    ],
+  }),
+
+  openai: (input) => ({
+    model: input.model,
+    max_completion_tokens: MAX_OUTPUT_TOKENS,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: `data:image/png;base64,${input.imageBase64}` } },
+          { type: "text", text: input.prompt },
+        ],
+      },
+    ],
+  }),
+
+  google: (input) => ({
+    contents: [
+      {
+        parts: [
+          { inline_data: { mime_type: "image/png", data: input.imageBase64 } },
+          { text: input.prompt },
+        ],
+      },
+    ],
+    generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS },
+  }),
+};
+
+/** Build the vendor's HTTP request. Throws when the vendor requires a key and none is set. */
 export function buildLlmRequest(input: LlmRequestInput): LlmHttpRequest {
-  if (input.vendor !== "custom" && !input.apiKey.trim()) throw new Error("missing API key");
+  const vendor = VENDORS[input.vendor];
+  if (vendor.requiresKey && !input.apiKey.trim()) throw new Error("missing API key");
 
-  switch (input.vendor) {
-    case "anthropic":
-      return {
-        url: "https://api.anthropic.com/v1/messages",
-        headers: {
-          "x-api-key": input.apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: {
-          model: input.model,
-          max_tokens: MAX_OUTPUT_TOKENS,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: "image/png",
-                    data: input.imageBase64,
-                  },
-                },
-                { type: "text", text: input.prompt },
-              ],
-            },
-          ],
-        },
-      };
-
-    case "openai":
-    case "openrouter":
-    case "custom":
-      return {
-        url:
-          input.vendor === "custom"
-            ? chatCompletionsUrl(input.baseUrl ?? "")
-            : input.vendor === "openrouter"
-              ? "https://openrouter.ai/api/v1/chat/completions"
-              : "https://api.openai.com/v1/chat/completions",
-        headers: {
-          ...(input.apiKey.trim() ? { authorization: `Bearer ${input.apiKey}` } : {}),
-          "content-type": "application/json",
-          // OpenRouter attribution headers (ignored by OpenAI).
-          ...(input.vendor === "openrouter"
-            ? { "http-referer": "https://inkedmark.com", "x-title": "InkedMark" }
-            : {}),
-        },
-        body: {
-          model: input.model,
-          max_completion_tokens: MAX_OUTPUT_TOKENS,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: { url: `data:image/png;base64,${input.imageBase64}` },
-                },
-                { type: "text", text: input.prompt },
-              ],
-            },
-          ],
-        },
-      };
-
-    case "google":
-      return {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-          input.model,
-        )}:generateContent`,
-        headers: {
-          "x-goog-api-key": input.apiKey,
-          "content-type": "application/json",
-        },
-        body: {
-          contents: [
-            {
-              parts: [
-                { inline_data: { mime_type: "image/png", data: input.imageBase64 } },
-                { text: input.prompt },
-              ],
-            },
-          ],
-          generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS },
-        },
-      };
-  }
+  return {
+    url: vendor.url({ model: input.model, baseUrl: input.baseUrl }),
+    headers: { ...vendor.headers(input.apiKey), "content-type": "application/json" },
+    body: DIALECT_BODIES[vendor.dialect](input),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -229,50 +288,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function isTruncatedLlmResponse(vendor: LlmVendor, json: unknown): boolean {
   if (!isRecord(json)) return false;
 
-  if (vendor === "anthropic") return json.stop_reason === "max_tokens";
+  switch (VENDORS[vendor].dialect) {
+    case "anthropic":
+      return json.stop_reason === "max_tokens";
 
-  if (vendor === "openai" || vendor === "openrouter" || vendor === "custom") {
-    const choices = json.choices;
-    if (!Array.isArray(choices) || !isRecord(choices[0])) return false;
-    return choices[0].finish_reason === "length";
+    case "openai": {
+      const choices = json.choices;
+      if (!Array.isArray(choices) || !isRecord(choices[0])) return false;
+      return choices[0].finish_reason === "length";
+    }
+
+    case "google": {
+      const candidates = json.candidates;
+      if (!Array.isArray(candidates) || !isRecord(candidates[0])) return false;
+      return candidates[0].finishReason === "MAX_TOKENS";
+    }
   }
-
-  // google
-  const candidates = json.candidates;
-  if (!Array.isArray(candidates) || !isRecord(candidates[0])) return false;
-  return candidates[0].finishReason === "MAX_TOKENS";
 }
 
 /** Extract the transcription text from a vendor response, or "" if absent. */
 export function extractLlmText(vendor: LlmVendor, json: unknown): string {
   if (!isRecord(json)) return "";
 
-  if (vendor === "anthropic") {
-    const content = json.content;
-    if (!Array.isArray(content)) return "";
-    return content
-      .filter((b): b is { type: string; text: string } => isRecord(b) && b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
-  }
+  switch (VENDORS[vendor].dialect) {
+    case "anthropic": {
+      const content = json.content;
+      if (!Array.isArray(content)) return "";
+      return content
+        .filter((b): b is { type: string; text: string } => isRecord(b) && b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+    }
 
-  if (vendor === "openai" || vendor === "openrouter" || vendor === "custom") {
-    const choices = json.choices;
-    if (!Array.isArray(choices) || !isRecord(choices[0])) return "";
-    const message = choices[0].message;
-    if (!isRecord(message) || typeof message.content !== "string") return "";
-    return message.content;
-  }
+    case "openai": {
+      const choices = json.choices;
+      if (!Array.isArray(choices) || !isRecord(choices[0])) return "";
+      const message = choices[0].message;
+      if (!isRecord(message) || typeof message.content !== "string") return "";
+      return message.content;
+    }
 
-  // google
-  const candidates = json.candidates;
-  if (!Array.isArray(candidates) || !isRecord(candidates[0])) return "";
-  const content = candidates[0].content;
-  if (!isRecord(content) || !Array.isArray(content.parts)) return "";
-  return content.parts
-    .filter((p): p is { text: string } => isRecord(p) && typeof p.text === "string")
-    .map((p) => p.text)
-    .join("");
+    case "google": {
+      const candidates = json.candidates;
+      if (!Array.isArray(candidates) || !isRecord(candidates[0])) return "";
+      const content = candidates[0].content;
+      if (!isRecord(content) || !Array.isArray(content.parts)) return "";
+      return content.parts
+        .filter((p): p is { text: string } => isRecord(p) && typeof p.text === "string")
+        .map((p) => p.text)
+        .join("");
+    }
+  }
 }
 
 /** Normalize model output: trim and unwrap a single accidental code fence. */

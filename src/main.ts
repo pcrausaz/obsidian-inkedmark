@@ -26,7 +26,7 @@ import { createProviderRegistry, resolveProvider } from "./recognition/registry"
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import { LlmProvider } from "./recognition/llm";
 import { TrocrProvider } from "./recognition/trocr";
-import { describeLlmTarget } from "./recognition/llm-request";
+import { describeLlmTarget, VENDORS } from "./recognition/llm-request";
 import { postJson } from "./recognition/http";
 import {
   OPENROUTER_CALLBACK_ACTION,
@@ -89,10 +89,9 @@ export default class InkedMarkPlugin extends Plugin {
       model: this.settings.llmModel,
       // The custom endpoint gets its own key — a cloud vendor key must never
       // be sent to an arbitrary user-configured URL.
-      apiKey:
-        this.settings.llmVendor === "custom"
-          ? this.settings.llmCustomApiKey
-          : this.settings.llmApiKey,
+      apiKey: VENDORS[this.settings.llmVendor].userEndpoint
+        ? this.settings.llmCustomApiKey
+        : this.settings.llmApiKey,
       baseUrl: this.settings.llmBaseUrl,
     }));
     this.providers.set(llm.id, llm);
@@ -273,7 +272,7 @@ export default class InkedMarkPlugin extends Plugin {
     // Consent is scoped: named cloud vendors and the user-configured custom
     // endpoint are different destinations, so consenting to one must not
     // silently authorize the other after a vendor switch.
-    const custom = this.settings.llmVendor === "custom";
+    const custom = VENDORS[this.settings.llmVendor].userEndpoint;
     const consented = custom ? this.settings.customConsentGiven : this.settings.cloudConsentGiven;
     if (provider.requiresNetwork && !consented) {
       if (auto) return;

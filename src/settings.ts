@@ -22,6 +22,7 @@ import {
   LLM_PROVIDER_ID,
   type LlmVendor,
   VENDOR_LABELS,
+  VENDORS,
   chatCompletionsUrl,
   isPlainHttpUrl,
 } from "./recognition/llm-request";
@@ -218,7 +219,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
 
   override getSettingDefinitions(): SettingDefinitionItem[] {
     const settings = this.plugin.settings;
-    const customKey = settings.llmVendor === "custom";
+    const customKey = VENDORS[settings.llmVendor].userEndpoint;
 
     const providerOptions: Record<string, string> = {};
     for (const id of this.plugin.providers.keys()) {
@@ -326,7 +327,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
               "OpenAI-compatible base URL, including /v1 where the server uses one — " +
               "works with Ollama, LM Studio, llama.cpp, vLLM, LocalAI. See SELF_HOSTING.md " +
               "in the plugin repository for setup guides.",
-            visible: () => this.plugin.settings.llmVendor === "custom",
+            visible: () => VENDORS[this.plugin.settings.llmVendor].userEndpoint,
             render: (setting) => {
               setting.setClass("inkedmark-wide-text");
               setting.addText((text) =>
@@ -346,7 +347,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             name: "",
             searchable: false,
             visible: () =>
-              this.plugin.settings.llmVendor === "custom" &&
+              VENDORS[this.plugin.settings.llmVendor].userEndpoint &&
               endpointUrlInvalid(this.plugin.settings.llmBaseUrl),
             render: (setting) =>
               this.renderBlock(setting, (el) => buildCallout(el, URL_ERROR_CALLOUT)),
@@ -357,7 +358,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             visible: () => {
               const { llmVendor, llmBaseUrl } = this.plugin.settings;
               return (
-                llmVendor === "custom" &&
+                VENDORS[llmVendor].userEndpoint &&
                 !endpointUrlInvalid(llmBaseUrl) &&
                 isPlainHttpUrl(llmBaseUrl)
               );
@@ -370,7 +371,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             desc:
               "One-click connect creates a user-scoped API key in your browser — no copy/paste. " +
               "You approve it on openrouter.ai; nothing is sent until you do.",
-            visible: () => this.plugin.settings.llmVendor === "openrouter",
+            visible: () => VENDORS[this.plugin.settings.llmVendor].oauthConnect,
             render: (setting) => {
               setting.addButton((button) =>
                 button
@@ -697,7 +698,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         });
       });
 
-      if (this.plugin.settings.llmVendor === "custom") {
+      if (VENDORS[this.plugin.settings.llmVendor].userEndpoint) {
         let urlError: HTMLDivElement | null = null;
         let httpWarning: HTMLDivElement | null = null;
         const refreshEndpointCallouts = () => {
@@ -729,7 +730,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         refreshEndpointCallouts();
       }
 
-      if (this.plugin.settings.llmVendor === "openrouter") {
+      if (VENDORS[this.plugin.settings.llmVendor].oauthConnect) {
         new Setting(containerEl)
           .setName("Connect OpenRouter")
           .setDesc(
@@ -763,7 +764,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
 
       // The custom endpoint has its own key slot so a cloud vendor secret is
       // never sent to an arbitrary user-configured URL.
-      const customKey = this.plugin.settings.llmVendor === "custom";
+      const customKey = VENDORS[this.plugin.settings.llmVendor].userEndpoint;
       new Setting(containerEl)
         .setName(customKey ? "Endpoint API key" : "Cloud AI API key")
         .setDesc(
