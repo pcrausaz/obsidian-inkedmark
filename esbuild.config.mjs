@@ -11,14 +11,18 @@ Source: https://github.com/pcrausaz/obsidian-inkedmark
 const production = process.argv[2] === "production";
 const deployDir = resolveDeployDir();
 
-// A per-build stamp (local time, to the second) surfaced in the toolbar so a
-// tester can confirm which build is actually running — important when iCloud
-// sync latency makes "is the new build on the iPad yet?" ambiguous.
+// A per-build stamp surfaced in the toolbar so a tester can confirm which
+// build is actually running — important when iCloud sync latency makes "is
+// the new build on the iPad yet?" ambiguous. Dev builds use wall-clock time;
+// production builds use a fixed stamp (the version already sits next to it in
+// the toolbar) so a release rebuilt from the tag is byte-identical — the
+// community-directory review rebuilds from source and compares artifacts.
 const now = new Date();
 const p2 = (n) => String(n).padStart(2, "0");
-const buildId =
-  `${now.getFullYear()}${p2(now.getMonth() + 1)}${p2(now.getDate())}` +
-  `-${p2(now.getHours())}${p2(now.getMinutes())}${p2(now.getSeconds())}`;
+const buildId = production
+  ? "release"
+  : `${now.getFullYear()}${p2(now.getMonth() + 1)}${p2(now.getDate())}` +
+    `-${p2(now.getHours())}${p2(now.getMinutes())}${p2(now.getSeconds())}`;
 
 // Copy artifacts into the configured vault plugin folder after each successful
 // build. In watch mode this fires on every rebuild, giving an edit -> vault
