@@ -5,6 +5,16 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Changed
+
+- Release builds are now reproducible: rebuilding `main.js` from the tagged
+  source produces a byte-identical artifact. Previously a wall-clock build
+  stamp was baked into every bundle, which made the directory review's
+  rebuild-and-compare check flag every release. Dev builds keep the
+  timestamped toolbar stamp.
+
 ## [1.2.5] - 2026-08-03
 
 Maintenance release clearing two build-time dependency advisories that were
