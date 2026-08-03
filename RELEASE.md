@@ -6,10 +6,18 @@ the website deploy are automated; a few steps are inherently manual.
 ## Cut a release (automated)
 
 1. Ensure `main` is green and the working tree is clean.
-2. Add a `## [x.y.z] - YYYY-MM-DD` section to `CHANGELOG.md` — `release.yml`
+2. Check for pending dependency advisories — merge or consciously defer them
+   _before_ tagging, so a release never goes out with a known-open alert:
+   ```bash
+   gh pr list                # open Dependabot PRs
+   gh api repos/pcrausaz/obsidian-inkedmark/dependabot/alerts \
+     --jq '[.[] | select(.state=="open")] | length'
+   npm audit                 # catches advisories Dependabot hasn't filed yet
+   ```
+3. Add a `## [x.y.z] - YYYY-MM-DD` section to `CHANGELOG.md` — `release.yml`
    extracts it as the GitHub Release notes (falls back to a generic line if
    the section is missing).
-3. Bump the version (updates `manifest.json` + `versions.json` via
+4. Bump the version (updates `manifest.json` + `versions.json` via
    `version-bump.mjs`):
    ```bash
    npm version patch   # or minor / major
@@ -17,11 +25,11 @@ the website deploy are automated; a few steps are inherently manual.
    This tags the commit as `x.y.z` — **no `v` prefix** (enforced by `.npmrc`'s
    `tag-version-prefix=""`; Obsidian requires the tag to match
    `manifest.json`'s version exactly).
-4. Push the commit and the tag:
+5. Push the commit and the tag:
    ```bash
    git push && git push --tags
    ```
-5. `release.yml` builds and creates a GitHub Release with `main.js`,
+6. `release.yml` builds and creates a GitHub Release with `main.js`,
    `manifest.json`, and `styles.css` attached — the three Obsidian artifacts —
    using the matching `CHANGELOG.md` section as the notes.
 

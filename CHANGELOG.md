@@ -5,6 +5,22 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.2.5] - 2026-08-03
+
+Maintenance release clearing two build-time dependency advisories that were
+open when 1.2.4 was tagged. Nothing here reaches a vault — no plugin behavior
+changes.
+
+### Security
+
+- `fast-uri` bumped to 3.1.5 (host confusion via backslash authority
+  introducer; dev-only, via the ajv/eslint toolchain).
+- `brace-expansion` ranges bumped past the CVE-2026-14257 mitigation-bypass
+  DoS advisory (dev-only, via eslint/glob/test tooling; not yet flagged by
+  Dependabot, caught by `npm audit`).
+- The release checklist now includes a dependency-advisory check _before_
+  tagging, so future releases don't ship with a known-open alert.
+
 ## [1.2.4] - 2026-08-03
 
 Obsidian 1.13.4 shipped searchable settings; InkedMark's settings tab
