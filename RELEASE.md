@@ -51,6 +51,14 @@ the website deploy are automated; a few steps are inherently manual.
   `docs/assets/demo.gif`. Replace those files to update both.
 - **On-device QA.** Run `QA.md` on device before a public release; check the
   open [GitHub issues](https://github.com/pcrausaz/obsidian-inkedmark/issues).
+- **Discord announcement.** After the release is live, draft a short Discord
+  post and post it manually (Pascal). Voice and format: what changed _for the
+  user_ (not the implementation), plain and to the point, Discord markdown
+  (`**bold**` section leads, `*italics*`, `<url>` to suppress link embeds).
+  Combine releases into one post when they land close together; skip posts
+  for pure maintenance releases nobody would act on. End with the GitHub
+  release link and <https://inkedmark.com/>. Last announced: see the pinned
+  history in the Discord channel.
 - **Community Plugins submission.** Open a PR against
   [`obsidianmd/obsidian-releases`](https://github.com/obsidianmd/obsidian-releases)
   adding InkedMark to `community-plugins.json` (id `inkedmark`). Requires the
