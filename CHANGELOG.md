@@ -5,7 +5,10 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.2.4] - 2026-08-03
+
+Obsidian 1.13.4 shipped searchable settings; InkedMark's settings tab
+(declarative since 1.2.0) now gives that search the right vocabulary.
 
 ### Changed
 
