@@ -5,6 +5,15 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Changed
+
+- Settings surface better in Obsidian 1.13's settings search: search aliases
+  for the terms people actually type (OCR, stylus, Apple Pencil, self-hosted,
+  Anthropic/OpenAI/Gemini/OpenRouter, offline, …), and descriptions added to
+  the two settings that had none (Default stroke size, Cloud AI vendor).
+
 ## [1.2.3] - 2026-07-24
 
 Maintenance release: dependency advisories cleared and the Cloud AI vendor

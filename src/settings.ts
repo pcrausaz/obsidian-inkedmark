@@ -239,16 +239,19 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       {
         name: "Pressure sensitivity",
         desc: "Use pen pressure to vary stroke width (pen/stylus only).",
+        aliases: ["stylus", "Apple Pencil"],
         control: { type: "toggle", key: "pressureEnabled" },
       },
       {
         name: "Desynchronized canvas",
         desc: "Low-latency rendering hint. Turn off if ink looks corrupted on your device (historically flaky on iOS WebKit).",
+        aliases: ["latency", "glitch", "artifacts"],
         control: { type: "toggle", key: "desynchronizedCanvas" },
       },
       {
         name: "Paper width",
         desc: "Logical width of the paper roll, in pixels.",
+        aliases: ["canvas size", "page width"],
         render: (setting) => {
           // A plain text input, not a `number` control: the number control's
           // min/max clamp keystrokes silently, so out-of-range input could
@@ -281,6 +284,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       {
         name: "Default ink color",
         desc: "Color selected when a new ink note opens.",
+        aliases: ["pen color"],
         control: { type: "color", key: "defaultColor" },
       },
       {
@@ -290,6 +294,8 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       },
       {
         name: "Default stroke size",
+        desc: "Stroke thickness selected when an ink note opens.",
+        aliases: ["pen size", "line width"],
         control: {
           type: "dropdown",
           key: "defaultSize",
@@ -299,11 +305,13 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       {
         name: "Highlighter opacity",
         desc: "Transparency of highlighter strokes.",
+        aliases: ["transparency", "alpha"],
         control: { type: "slider", key: "highlighterAlpha", min: 10, max: 100, step: 5 },
       },
       {
         name: "Custom colors",
         desc: "Extra palette swatches, as comma-separated hex (e.g. #ff8800, #00ccaa).",
+        aliases: ["palette"],
         control: { type: "text", key: "customColors", placeholder: "#ff8800, #00ccaa" },
       },
       {
@@ -311,6 +319,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         desc:
           "Provider that turns strokes into searchable text. Manual = you type the transcription; " +
           "Cloud AI sends an image of the ink to a vision model using your own API key.",
+        aliases: ["OCR", "handwriting to text"],
         control: { type: "dropdown", key: "recognitionProviderId", options: providerOptions },
       },
       {
@@ -319,6 +328,8 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         items: [
           {
             name: "Cloud AI vendor",
+            desc: "Service that receives recognition requests — bring your own API key.",
+            aliases: ["Anthropic", "Claude", "OpenAI", "GPT", "Gemini", "OpenRouter"],
             control: { type: "dropdown", key: "llmVendor", options: VENDOR_LABELS },
           },
           {
@@ -327,6 +338,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
               "OpenAI-compatible base URL, including /v1 where the server uses one — " +
               "works with Ollama, LM Studio, llama.cpp, vLLM, LocalAI. See SELF_HOSTING.md " +
               "in the plugin repository for setup guides.",
+            aliases: ["self-hosted", "local server"],
             visible: () => VENDORS[this.plugin.settings.llmVendor].userEndpoint,
             render: (setting) => {
               setting.setClass("inkedmark-wide-text");
@@ -397,6 +409,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           },
           {
             name: customKey ? "Endpoint API key" : "Cloud AI API key",
+            aliases: ["token", "secret"],
             desc: customKey
               ? "Optional — most self-hosted servers don't need one. Kept separate from your " +
                 "cloud vendor key and sent only to your configured endpoint."
@@ -412,6 +425,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
               "Run recognition in the background about 30 seconds after you stop writing, " +
               "and only when the ink actually changed. Requires the one-time cloud consent " +
               "(run it manually once first).",
+            aliases: ["auto recognition"],
             control: { type: "toggle", key: "autoRecognize" },
           },
         ],
@@ -423,6 +437,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
           "the device, but the first run downloads the model from Hugging Face. " +
           "English handwriting only, and noticeably less accurate than Cloud AI — expect " +
           "rough output on cursive. Desktop only.",
+        aliases: ["offline", "local OCR", "TrOCR"],
         visible: !Platform.isMobileApp,
         control: { type: "toggle", key: "experimentalTrocr" },
       },
@@ -450,6 +465,7 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             desc:
               "Show raw pen/touch event data on the canvas — event sequence, coalesced counts, " +
               "timing gaps, and stroke totals. Useful when reporting missing or broken strokes.",
+            aliases: ["diagnostics", "HUD", "troubleshooting"],
             control: { type: "toggle", key: "debugHud" },
           },
           {
@@ -629,13 +645,16 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl).setName("Default stroke size").addDropdown((dropdown) => {
-      for (const size of SIZES) dropdown.addOption(String(size), String(size));
-      dropdown.setValue(String(this.plugin.settings.defaultSize)).onChange(async (value) => {
-        this.plugin.settings.defaultSize = Number(value);
-        await this.plugin.saveSettings();
+    new Setting(containerEl)
+      .setName("Default stroke size")
+      .setDesc("Stroke thickness selected when an ink note opens.")
+      .addDropdown((dropdown) => {
+        for (const size of SIZES) dropdown.addOption(String(size), String(size));
+        dropdown.setValue(String(this.plugin.settings.defaultSize)).onChange(async (value) => {
+          this.plugin.settings.defaultSize = Number(value);
+          await this.plugin.saveSettings();
+        });
       });
-    });
 
     new Setting(containerEl)
       .setName("Highlighter opacity")
@@ -686,17 +705,20 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       });
 
     if (this.plugin.settings.recognitionProviderId === LLM_PROVIDER_ID) {
-      new Setting(containerEl).setName("Cloud AI vendor").addDropdown((dropdown) => {
-        for (const [id, label] of Object.entries(VENDOR_LABELS)) dropdown.addOption(id, label);
-        dropdown.setValue(this.plugin.settings.llmVendor).onChange(async (value) => {
-          this.plugin.settings.llmVendor = value as LlmVendor;
-          // A vendor change invalidates any in-flight OpenRouter connect so a
-          // stale browser approval can't overwrite this choice later.
-          this.plugin.cancelOpenRouterConnect();
-          await this.plugin.saveSettings();
-          this.renderLegacy(); // refresh the model placeholder
+      new Setting(containerEl)
+        .setName("Cloud AI vendor")
+        .setDesc("Service that receives recognition requests — bring your own API key.")
+        .addDropdown((dropdown) => {
+          for (const [id, label] of Object.entries(VENDOR_LABELS)) dropdown.addOption(id, label);
+          dropdown.setValue(this.plugin.settings.llmVendor).onChange(async (value) => {
+            this.plugin.settings.llmVendor = value as LlmVendor;
+            // A vendor change invalidates any in-flight OpenRouter connect so a
+            // stale browser approval can't overwrite this choice later.
+            this.plugin.cancelOpenRouterConnect();
+            await this.plugin.saveSettings();
+            this.renderLegacy(); // refresh the model placeholder
+          });
         });
-      });
 
       if (VENDORS[this.plugin.settings.llmVendor].userEndpoint) {
         let urlError: HTMLDivElement | null = null;
