@@ -76,7 +76,9 @@ export const VENDORS: Record<LlmVendor, VendorDescriptor> = {
   },
   google: {
     label: "Google (Gemini)",
-    defaultModel: "gemini-2.5-flash",
+    // 2.5-flash shuts down 2026-10-16 (and free-tier keys lost access
+    // earlier, surfacing as bare 404s — issue #16).
+    defaultModel: "gemini-3.5-flash",
     dialect: "google",
     requiresKey: true,
     userEndpoint: false,
@@ -88,7 +90,7 @@ export const VENDORS: Record<LlmVendor, VendorDescriptor> = {
   },
   openrouter: {
     label: "OpenRouter (any model)",
-    defaultModel: "google/gemini-2.5-flash",
+    defaultModel: "google/gemini-3.5-flash",
     dialect: "openai",
     requiresKey: true,
     userEndpoint: false,
@@ -339,6 +341,22 @@ export function extractLlmText(vendor: LlmVendor, json: unknown): string {
         .join("");
     }
   }
+}
+
+/**
+ * Best-effort human-readable message from a vendor error response, or "".
+ * All three dialects use `{error: {message}}`; some OpenAI-compatible servers
+ * (e.g. Ollama) use a bare `{error: "…"}` string. Surfacing this matters: a
+ * Google 404 body names the exact problem ("model X is not available"), while
+ * the status code alone sends users chasing their key (issue #16).
+ */
+export function extractLlmErrorMessage(json: unknown): string {
+  if (!isRecord(json)) return "";
+  const error = json.error;
+  const message = typeof error === "string" ? error : isRecord(error) ? error.message : undefined;
+  if (typeof message !== "string") return "";
+  const trimmed = message.trim();
+  return trimmed.length > 300 ? `${trimmed.slice(0, 300)}…` : trimmed;
 }
 
 /** Normalize model output: trim and unwrap a single accidental code fence. */

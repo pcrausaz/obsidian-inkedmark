@@ -7,7 +7,19 @@ extracted from the matching section of this file by `release.yml`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Cloud AI errors now include the vendor's own error message instead of just
+  the HTTP status — a Gemini 404, for example, now says which model is
+  unavailable rather than leaving you guessing at keys and settings.
+  ([#16](https://github.com/pcrausaz/obsidian-inkedmark/issues/16))
+
 ### Changed
+
+- The Gemini default model is now `gemini-3.5-flash` (was `gemini-2.5-flash`,
+  which Google shuts down on 2026-10-16 and has already restricted for some
+  keys). The OpenRouter default follows suit. Only affects an empty model
+  field — an explicitly set model is never changed.
 
 - Release builds are now reproducible: rebuilding `main.js` from the tagged
   source produces a byte-identical artifact. Previously a wall-clock build

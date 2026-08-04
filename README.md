@@ -74,7 +74,7 @@ Three providers (Settings → Handwriting recognition):
   Anthropic (Claude), OpenAI (GPT), and Google (Gemini); you pick the vendor
   and model and paste **your own API key**. Typical cost is a fraction of a
   cent per page. The **OpenRouter** vendor lets you try any vision model on
-  the market (e.g. `google/gemini-2.5-flash`, `anthropic/claude-haiku-4.5`)
+  the market (e.g. `google/gemini-3.5-flash`, `anthropic/claude-haiku-4.5`)
   with a single key — and its **Connect OpenRouter** button sets the key up
   for you in one click (you approve it in your browser; no copy/paste).
   The **Custom endpoint** vendor points recognition at any self-hosted

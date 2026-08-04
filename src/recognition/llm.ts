@@ -22,6 +22,7 @@ import {
   cleanTranscription,
   defaultModelFor,
   describeLlmTarget,
+  extractLlmErrorMessage,
   extractLlmText,
   isTruncatedLlmResponse,
   VENDORS,
@@ -95,7 +96,19 @@ export class LlmProvider implements RecognitionProvider {
             : `${vendorLabel} rejected the API key — check it in settings.`,
         );
       }
-      throw new Error(`${vendorLabel} request failed (HTTP ${response.status}).`);
+      // The response body usually names the actual problem (e.g. Google's
+      // 404 body says which model is unavailable) — the status alone doesn't.
+      let errorJson: unknown = null;
+      try {
+        errorJson = response.json;
+      } catch {
+        // Non-JSON error body; the status code is all we have.
+      }
+      const apiMessage = extractLlmErrorMessage(errorJson);
+      throw new Error(
+        `${vendorLabel} request failed (HTTP ${response.status})` +
+          (apiMessage ? `: ${apiMessage}` : "."),
+      );
     }
 
     let json: unknown;

@@ -7,6 +7,7 @@ import {
   cleanTranscription,
   defaultModelFor,
   describeLlmTarget,
+  extractLlmErrorMessage,
   extractLlmText,
   isPlainHttpUrl,
   isTruncatedLlmResponse,
@@ -204,6 +205,40 @@ describe("extractLlmText", () => {
     expect(extractLlmText("anthropic", null)).toBe("");
     expect(extractLlmText("openai", { choices: [] })).toBe("");
     expect(extractLlmText("google", { candidates: [{}] })).toBe("");
+  });
+});
+
+describe("extractLlmErrorMessage", () => {
+  it("extracts the shared {error: {message}} shape", () => {
+    const json = {
+      error: {
+        code: 404,
+        message:
+          "models/gemini-2.5-flash is not found for API version v1beta, " +
+          "or is not supported for generateContent.",
+        status: "NOT_FOUND",
+      },
+    };
+    expect(extractLlmErrorMessage(json)).toMatch(/gemini-2\.5-flash is not found/);
+  });
+
+  it("extracts a bare {error: string} (Ollama-style servers)", () => {
+    expect(extractLlmErrorMessage({ error: 'model "nope" not found' })).toBe(
+      'model "nope" not found',
+    );
+  });
+
+  it("returns empty string when no message is present", () => {
+    expect(extractLlmErrorMessage(null)).toBe("");
+    expect(extractLlmErrorMessage({})).toBe("");
+    expect(extractLlmErrorMessage({ error: {} })).toBe("");
+    expect(extractLlmErrorMessage({ error: { message: 42 } })).toBe("");
+  });
+
+  it("truncates very long messages", () => {
+    const message = extractLlmErrorMessage({ error: { message: "x".repeat(500) } });
+    expect(message.length).toBeLessThanOrEqual(301);
+    expect(message.endsWith("…")).toBe(true);
   });
 });
 
