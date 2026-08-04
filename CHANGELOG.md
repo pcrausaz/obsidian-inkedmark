@@ -5,7 +5,10 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.2.6] - 2026-08-04
+
+Gemini recognition fixed for keys Google cut off from older models, real
+error messages when a cloud vendor says no, and reproducible release builds.
 
 ### Fixed
 
