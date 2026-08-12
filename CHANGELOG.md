@@ -5,6 +5,19 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.2.7] - 2026-08-12
+
+Maintenance release clearing two build-time dependency advisories. Nothing
+here reaches a vault — no plugin behavior changes.
+
+### Security
+
+- `js-yaml` bumped to 4.3.1 (quadratic CPU consumption in `!!omap`
+  resolution, GHSA-5p4m-2wfm-xmqj; dev-only, via the eslint toolchain).
+- `nanoid` bumped to 3.3.18 past GHSA-2v37-7h3g-55p8 (custom generators can
+  loop indefinitely on zero size; dev-only, via vitest/vite/postcss; not yet
+  flagged by Dependabot, caught by `npm audit`).
+
 ## [1.2.6] - 2026-08-04
 
 Gemini recognition fixed for keys Google cut off from older models, real
