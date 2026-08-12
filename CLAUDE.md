@@ -26,8 +26,11 @@ Obsidian plugin: pressure-aware handwriting fused with markdown.
   attested artifacts.
 - `ci.yml` — lint/typecheck/test/build on pushes to `main` and PRs.
 
-In short: pushing to `main` or pushing tags can publish things. Don't do
-either without being asked.
+In short: pushing to `main` is fine as part of the task — but when a push
+touches `docs/**`, remember it deploys the public website, so verify those
+changes first. Pushing a version tag publishes a release: only do it as part
+of the RELEASE.md flow (advisory check and CHANGELOG.md entry come first),
+not ad hoc.
 
 ## Commands
 
