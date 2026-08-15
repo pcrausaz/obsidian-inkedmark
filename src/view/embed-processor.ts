@@ -30,10 +30,10 @@ import {
   findInlineBlock,
   parseInlineBlock,
   replaceInlineBlock,
-  updateInlineBlockPayload,
+  updateInlineBlockSource,
 } from "../model/inline-block";
 import { SerializeError, decodeDocument, encodeDocument, parseInkFile } from "../model/serialize";
-import { InlineInkModal } from "./inline-ink-modal";
+import { InlineInkModal, type InlineInkResult } from "./inline-ink-modal";
 import type InkedMarkPlugin from "../main";
 
 const MAX_DPR = 3;
@@ -169,8 +169,8 @@ function renderInlineBlock(
       // already be detached (Live Preview re-renders eagerly).
       const info = ctx.getSectionInfo(el);
       const hint = info ? { lineStart: info.lineStart, lineEnd: info.lineEnd } : undefined;
-      new InlineInkModal(plugin.app, plugin.settings, editDoc, (edited) => {
-        void writeInlineBlock(plugin, ctx.sourcePath, source, hint, edited);
+      new InlineInkModal(plugin, editDoc, caption, (result) => {
+        void writeInlineBlock(plugin, ctx.sourcePath, source, hint, result);
       }).open();
     } catch (error) {
       // Mobile has no console within reach; make a failure visible.
@@ -180,20 +180,20 @@ function renderInlineBlock(
   });
 }
 
-/** Persist an edited inline block: replace its payload line inside the fenced block. */
+/** Persist an edited inline block: rewrite its payload (and caption) inside the fenced block. */
 async function writeInlineBlock(
   plugin: InkedMarkPlugin,
   sourcePath: string,
   source: string,
   hint: { lineStart: number; lineEnd: number } | undefined,
-  doc: InkDocument,
+  result: InlineInkResult,
 ): Promise<void> {
   const file = plugin.app.vault.getFileByPath(sourcePath);
   if (!file) {
     new Notice("InkedMark: couldn't save — the note is no longer available.");
     return;
   }
-  const inner = updateInlineBlockPayload(source, encodeDocument(doc));
+  const inner = updateInlineBlockSource(source, encodeDocument(result.doc), result.caption);
   let written = false;
   await plugin.app.vault.process(file, (data) => {
     const range = findInlineBlock(data, source, hint);

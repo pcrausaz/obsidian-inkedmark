@@ -130,6 +130,8 @@ its links become real graph edges.
   block's corner (reading mode or Live Preview) to draw in a full-size editor;
   the strokes are saved back into the block when you close it. Or run
   **Insert inline handwriting** to insert a block and start drawing at once.
+  The caption is the block's text layer: edit it in the editor's text panel,
+  or let **Recognize handwriting** fill it in.
 
 ### File format
 

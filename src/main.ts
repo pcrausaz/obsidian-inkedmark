@@ -42,6 +42,11 @@ import { changelogSince, releasedChangelog } from "./changelog";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
 import { InlineInkModal } from "./view/inline-ink-modal";
+
+/** Something that can transcribe its strokes with a provider (ink view, inline editor). */
+export interface RecognitionTarget {
+  recognize(provider: RecognitionProvider, auto?: boolean): Promise<void>;
+}
 import changelogMd from "../CHANGELOG.md";
 
 export default class InkedMarkPlugin extends Plugin {
@@ -139,12 +144,13 @@ export default class InkedMarkPlugin extends Plugin {
         // Open the editor right away; on close, swap the just-inserted block for
         // the drawn one — through the editor buffer, since the file on disk may
         // not have been flushed yet.
-        new InlineInkModal(this.app, this.settings, doc, (edited) => {
+        new InlineInkModal(this, doc, "", (result) => {
           if (editor.getRange(from, to) !== block) {
             new Notice("InkedMark: the note changed — the drawing was not saved.");
             return;
           }
-          editor.replaceRange(buildInlineBlock(encodeDocument(edited)), from, to);
+          const next = buildInlineBlock(encodeDocument(result.doc), result.caption ?? "");
+          editor.replaceRange(next, from, to);
         }).open();
       },
     });
@@ -281,7 +287,7 @@ export default class InkedMarkPlugin extends Plugin {
    * cloud call (cloud providers send a rendered image of the ink off-device).
    * Background (`auto`) runs never prompt — without consent they just skip.
    */
-  async runRecognition(view: InkView, auto = false): Promise<void> {
+  async runRecognition(target: RecognitionTarget, auto = false): Promise<void> {
     const provider = this.activeProvider();
     // Consent is scoped: named cloud vendors and the user-configured custom
     // endpoint are different destinations, so consenting to one must not
@@ -309,7 +315,7 @@ export default class InkedMarkPlugin extends Plugin {
       else this.settings.cloudConsentGiven = true;
       await this.saveSettings();
     }
-    await view.recognize(provider, auto);
+    await target.recognize(provider, auto);
   }
 
   /** Begin the OpenRouter one-click connect: open the approval page in the browser. */

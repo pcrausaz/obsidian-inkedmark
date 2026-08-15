@@ -180,7 +180,10 @@ be found unambiguously the save is refused with a notice rather than guessed
 (pure helpers in `model/inline-block.ts`). "Insert inline handwriting" inserts
 the block and opens the editor at once (writing back through the editor
 buffer, since the file may not be flushed yet). An unreadable payload is never
-overwritten.
+overwritten. The `caption:` line is the block's text layer: the editor's text
+panel edits it and "Recognize handwriting" writes the (single-line-collapsed)
+transcription into it — the same `runRecognition` consent path as ink notes,
+via the `RecognitionTarget` interface.
 
 ### 4.3 Stroke document (pre-compression JSON)
 Compact by construction: **tuple-packed points** and **quantized coordinates**.

@@ -90,6 +90,10 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       existing strokes; edits (add, erase, undo) are saved on **Done**, ✕ and
       Escape; **Discard changes** leaves the block untouched. The `caption:`
       line survives a save verbatim.
+- [ ] In the editor, the text-panel button shows the caption field; editing
+      it and pressing Done updates the block's `caption:` line (and the
+      rendered caption). **Recognize handwriting** fills the caption from the
+      ink (consent prompt on first cloud use, as in ink notes).
 - [ ] Same from Live Preview (cursor outside the block).
 - [ ] iPad: the editor is full-screen; Pencil draws, one-finger drag pans,
       pinch zooms; closing writes back and the block re-renders.

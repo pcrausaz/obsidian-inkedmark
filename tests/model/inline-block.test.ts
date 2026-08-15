@@ -4,7 +4,7 @@ import {
   findInlineBlock,
   parseInlineBlock,
   replaceInlineBlock,
-  updateInlineBlockPayload,
+  updateInlineBlockSource,
 } from "../../src/model/inline-block";
 
 describe("parseInlineBlock", () => {
@@ -45,14 +45,26 @@ describe("buildInlineBlock", () => {
   });
 });
 
-describe("updateInlineBlockPayload", () => {
+describe("updateInlineBlockSource", () => {
   it("replaces the payload line and keeps the caption", () => {
-    expect(updateInlineBlockPayload("caption: Hi\nv1:old", "v1:new")).toBe("caption: Hi\nv1:new");
+    expect(updateInlineBlockSource("caption: Hi\nv1:old", "v1:new")).toBe("caption: Hi\nv1:new");
   });
 
   it("appends a payload when the block has none", () => {
-    expect(updateInlineBlockPayload("caption: Hi\n", "v1:new")).toBe("caption: Hi\nv1:new");
-    expect(updateInlineBlockPayload("", "v1:new")).toBe("v1:new");
+    expect(updateInlineBlockSource("caption: Hi\n", "v1:new")).toBe("caption: Hi\nv1:new");
+    expect(updateInlineBlockSource("", "v1:new")).toBe("v1:new");
+  });
+
+  it("replaces or inserts the caption when given", () => {
+    expect(updateInlineBlockSource("caption: Hi\nv1:old", "v1:new", "Bye")).toBe(
+      "caption: Bye\nv1:new",
+    );
+    expect(updateInlineBlockSource("v1:old", "v1:new", "Bye")).toBe("caption: Bye\nv1:new");
+    expect(updateInlineBlockSource("caption: Hi\nv1:old", "v1:new", "")).toBe("caption: \nv1:new");
+    // null leaves an existing caption alone
+    expect(updateInlineBlockSource("caption: Hi\nv1:old", "v1:new", null)).toBe(
+      "caption: Hi\nv1:new",
+    );
   });
 });
 

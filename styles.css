@@ -166,6 +166,10 @@
   min-height: 240px;
 }
 
+.inkedmark-inline-caption {
+  width: 100%;
+}
+
 .inkedmark-inline-footer {
   flex: 0 0 auto;
   display: flex;

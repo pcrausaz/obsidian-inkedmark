@@ -45,19 +45,28 @@ export function buildInlineBlock(payload: string, caption = ""): string {
 }
 
 /**
- * Return `source` with its stroke payload replaced by `payload`, keeping every
- * other line (caption, unknown lines) verbatim. Without an existing payload
- * line the payload is appended.
+ * Return `source` with its stroke payload replaced by `payload` and, when
+ * `caption` is given, its `caption:` line replaced (or inserted at the top).
+ * Every other line is kept verbatim. Without an existing payload line the
+ * payload is appended.
  */
-export function updateInlineBlockPayload(source: string, payload: string): string {
+export function updateInlineBlockSource(
+  source: string,
+  payload: string,
+  caption: string | null = null,
+): string {
   const lines = source.split(/\r?\n/);
+  // Drop a single trailing blank line so appended lines sit inside the block.
+  if (lines.length > 1 && lines[lines.length - 1].trim() === "") lines.pop();
   const at = lines.findIndex((line) => /^v\d+:/.test(line.trim()));
-  if (at >= 0) {
-    lines[at] = payload;
-  } else {
-    // Drop a single trailing blank line so the payload sits inside the block.
-    if (lines.length > 0 && lines[lines.length - 1].trim() === "") lines.pop();
-    lines.push(payload);
+  if (at >= 0) lines[at] = payload;
+  else if (lines.length === 1 && lines[0].trim() === "") lines[0] = payload;
+  else lines.push(payload);
+  if (caption !== null) {
+    const captionLine = `caption: ${caption}`.trimEnd() + (caption ? "" : " ");
+    const c = lines.findIndex((line) => /^caption:/i.test(line.trim()));
+    if (c >= 0) lines[c] = captionLine;
+    else lines.unshift(captionLine);
   }
   return lines.join("\n");
 }
