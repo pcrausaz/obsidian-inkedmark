@@ -99,12 +99,12 @@
 
 .inkedmark-embed-editable {
   position: relative;
-  /* Room for the pencil so it never covers the ink's top-right corner. */
+  /* Room for the corner button so it never covers the ink's top-right corner. */
   padding-right: 34px;
 }
 
-/* Pencil that opens the block in the editor modal (mirrors Obsidian's embed
-   "open" affordance in the top-right corner). */
+/* Corner button that opens the block in the editor modal (same expand icon
+   and placement as Obsidian's file-embed "open" affordance). */
 .inkedmark-embed-edit {
   position: absolute;
   top: 0;

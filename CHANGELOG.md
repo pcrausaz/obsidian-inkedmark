@@ -13,7 +13,8 @@ Inline handwriting blocks are finally editable.
 
 - ` ```inkedmark ` blocks were rendered read-only and nothing in the plugin
   could put ink into them, so "Insert inline handwriting" produced a block you
-  could never draw in (#18). Every block now shows a pencil in its corner
+  could never draw in (#18). Every block now shows an open/edit icon in its corner (the same arrows as
+  `![[…]]` embeds)
   (reading mode and Live Preview) that opens a full-size drawing editor — the
   same tools as an ink note, full-screen on mobile — and writes the strokes
   back into the block when you close it. "Insert inline handwriting" opens the

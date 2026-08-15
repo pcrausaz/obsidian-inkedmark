@@ -126,7 +126,7 @@ its links become real graph edges.
 - `![[Sketch.ink.md]]` renders the sketch inside any note (reading mode and
   live preview).
 - ` ```inkedmark ` blocks hold a small drawing in place, with an optional
-  `caption:` line that doubles as its searchable text. Tap the pencil in the
+  `caption:` line that doubles as its searchable text. Tap the expand icon in the
   block's corner (reading mode or Live Preview) to draw in a full-size editor;
   the strokes are saved back into the block when you close it. Or run
   **Insert inline handwriting** to insert a block and start drawing at once.

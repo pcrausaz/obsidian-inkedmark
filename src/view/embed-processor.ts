@@ -2,7 +2,7 @@
  * Inline rendering of handwriting in ordinary notes (§4.2, §15 phase 0.3/0.4).
  *
  * - ```inkedmark``` fenced blocks: a code-block processor decodes the payload and
- *   paints it onto a static, DPR-aware canvas, with a pencil button that opens
+ *   paints it onto a static, DPR-aware canvas, with a corner button that opens
  *   the block in `InlineInkModal`; on close the new strokes are written back
  *   into the fenced block (located via `getSectionInfo`, with a content-based
  *   fallback when the note moved underneath the render). Obsidian runs
@@ -135,7 +135,7 @@ function renderInlineBlock(
       cls: "inkedmark-embed-empty",
       text: unreadable
         ? "Unreadable handwriting block"
-        : "Empty handwriting block — tap the pencil to draw",
+        : "Empty handwriting block — tap the corner icon to draw",
     });
   }
   if (caption) container.createDiv({ cls: "inkedmark-embed-caption", text: caption });
@@ -143,30 +143,40 @@ function renderInlineBlock(
   // An unreadable payload is never overwritten: editing would replace ink we
   // failed to decode. The user can still fix or delete the block in source.
   if (unreadable) return;
+  // Same affordance as Obsidian's own file embeds (the corner "open" arrows).
   const edit = container.createEl("button", { cls: "inkedmark-embed-edit clickable-icon" });
-  setIcon(edit, "pencil");
+  setIcon(edit, "maximize-2");
   edit.setAttribute("aria-label", "Edit handwriting");
-  // Keep the press inside the widget: in Live Preview a mousedown that reaches
-  // CodeMirror would move the cursor into the block and unmount this render.
-  edit.addEventListener("mousedown", (event) => event.stopPropagation());
+  // Keep the press inside the widget: in Live Preview a press that reaches
+  // CodeMirror moves the cursor into the block and unmounts this render before
+  // `click` fires (mouse on desktop, touch/pointer on mobile).
+  for (const type of ["mousedown", "pointerdown", "touchstart", "touchend"] as const) {
+    edit.addEventListener(type, (event) => event.stopPropagation());
+  }
   edit.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    // Re-decode for the editor so a cancelled session can't leave the rendered
-    // (shared) document mutated.
-    let editDoc: InkDocument;
     try {
-      editDoc = payload ? decodeDocument(payload) : emptyDocument(plugin.settings.paperWidth);
-    } catch {
-      editDoc = emptyDocument(plugin.settings.paperWidth);
+      // Re-decode for the editor so a cancelled session can't leave the rendered
+      // (shared) document mutated.
+      let editDoc: InkDocument;
+      try {
+        editDoc = payload ? decodeDocument(payload) : emptyDocument(plugin.settings.paperWidth);
+      } catch {
+        editDoc = emptyDocument(plugin.settings.paperWidth);
+      }
+      // Capture the section position now: after the modal closes the element may
+      // already be detached (Live Preview re-renders eagerly).
+      const info = ctx.getSectionInfo(el);
+      const hint = info ? { lineStart: info.lineStart, lineEnd: info.lineEnd } : undefined;
+      new InlineInkModal(plugin.app, plugin.settings, editDoc, (edited) => {
+        void writeInlineBlock(plugin, ctx.sourcePath, source, hint, edited);
+      }).open();
+    } catch (error) {
+      // Mobile has no console within reach; make a failure visible.
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(`InkedMark: couldn't open the handwriting editor — ${message}`, 8000);
     }
-    // Capture the section position now: after the modal closes the element may
-    // already be detached (Live Preview re-renders eagerly).
-    const info = ctx.getSectionInfo(el);
-    const hint = info ? { lineStart: info.lineStart, lineEnd: info.lineEnd } : undefined;
-    new InlineInkModal(plugin.app, plugin.settings, editDoc, (edited) => {
-      void writeInlineBlock(plugin, ctx.sourcePath, source, hint, edited);
-    }).open();
   });
 }
 

@@ -99,7 +99,7 @@ export class InlineInkModal extends Modal {
     const hint = footer.createSpan({ cls: "inkedmark-inline-hint" });
     hint.setText(
       Platform.isMobile
-        ? "Draw with the pencil; strokes are saved into the note when you close."
+        ? "Draw with the Pencil or a finger; strokes are saved into the note when you close."
         : "Strokes are saved into the note when you close. Cmd/Ctrl+Z undoes.",
     );
     const discard = footer.createEl("button", { text: "Discard changes" });

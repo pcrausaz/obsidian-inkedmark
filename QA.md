@@ -86,7 +86,7 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       the block (source shows a new `v1:` payload); the rendered block shows it.
 - [ ] In reading mode a block with strokes renders the ink; an empty one shows a
       placeholder; a `caption:` line renders below.
-- [ ] The pencil in the block's top-right corner opens the editor with the
+- [ ] The expand icon in the block's top-right corner opens the editor with the
       existing strokes; edits (add, erase, undo) are saved on **Done**, ✕ and
       Escape; **Discard changes** leaves the block untouched. The `caption:`
       line survives a save verbatim.
@@ -94,7 +94,7 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
 - [ ] iPad: the editor is full-screen; Pencil draws, one-finger drag pans,
       pinch zooms; closing writes back and the block re-renders.
 - [ ] Two identical blocks in one note: editing one changes only that one.
-- [ ] A corrupt payload shows "Unreadable…" with no pencil, not a crash.
+- [ ] A corrupt payload shows "Unreadable…" with no edit icon, not a crash.
 
 ## P1 — Search & graph integration (spec §6)
 

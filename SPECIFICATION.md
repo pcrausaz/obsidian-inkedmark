@@ -171,7 +171,7 @@ searchable text for the inline block.
 
 **Editing.** Pen input can't happen in place: the host page owns scrolling,
 and every write to the note tears the rendered block down and re-renders it.
-So the block carries a pencil button that opens `InlineInkModal` — the same
+So the block carries a corner button (same expand icon as file embeds) that opens `InlineInkModal` — the same
 `InkSurface` + toolbar as an ink note, in a large modal (full-screen on
 mobile). On close the strokes are re-encoded and written back into the fenced
 block: the block is located by `getSectionInfo` line range, verified against
@@ -280,7 +280,7 @@ src/
     inline-ink-modal.ts    # editor modal for ```inkedmark``` blocks (InkSurface
                            #   + toolbar); strokes written back on close.
     embed-processor.ts     # markdown post-processor: ![[*.ink.md]] embeds and
-                           #   ```inkedmark``` blocks (render + pencil → modal).
+                           #   ```inkedmark``` blocks (render + corner button → modal).
     toolbar.ts             # toolbar DOM, reused by view and modal.
   ui/
     confirm-modal.ts       # async confirm (replaces blocking confirm()).
