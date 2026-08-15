@@ -5,31 +5,40 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.3.0] - 2026-08-15
 
-Inline handwriting blocks are finally editable.
+Inline handwriting blocks are finally editable — from a full-size editor,
+on desktop and iPad.
 
 ### Fixed
 
 - ` ```inkedmark ` blocks were rendered read-only and nothing in the plugin
-  could put ink into them, so "Insert inline handwriting" produced a block you
-  could never draw in (#18). Every block now shows an open/edit icon in its corner (the same arrows as
-  `![[…]]` embeds)
-  (reading mode and Live Preview) that opens a full-size drawing editor — the
-  same tools as an ink note, full-screen on mobile — and writes the strokes
-  back into the block when you close it. "Insert inline handwriting" opens the
-  editor right after inserting the block. The block's caption acts as its
-  text layer: edit it in the editor's text panel or fill it with **Recognize
-  handwriting** (with **Recognize automatically** on, this happens when you
-  close the editor). Captions are preserved; unreadable
-  payloads are never overwritten; if the block can't be located unambiguously
-  in the note the save is refused with a notice instead of guessing.
+  could put ink into them, so **Insert inline handwriting** produced a block
+  you could never draw in (#18).
+
+### Added
+
+- **Inline block editor.** Every ` ```inkedmark ` block shows an open icon in
+  its corner (the same arrows as `![[…]]` embeds; reading mode and Live
+  Preview). It opens the block in a modal with the same toolbar as an ink
+  note — full-screen on iPad — and writes the strokes back into the block
+  when you close it (_Done_, ✕ or `Esc`; **Discard changes** drops them).
+  **Insert inline handwriting** now opens the editor right after inserting
+  the block.
+- **Caption as the block's text layer.** Edit it in the editor's text panel or
+  fill it with **Recognize handwriting** (transcription collapsed to one
+  line). With **Recognize automatically** on, that happens when you close the
+  editor after drawing — no idle timer inside the editor.
+- Safety rules for the write-back: only the block's `caption:` and payload
+  lines are rewritten; if the block can't be located unambiguously in the
+  note the save is refused with a notice; a block whose payload can't be
+  decoded shows no edit icon and is never overwritten.
 
 ### Changed
 
-- The drawing engine (canvases, pen/eraser/select tools, zoom, undo/redo) is
-  now a component shared by the ink-note view and the inline editor; ink-note
-  behavior is unchanged.
+- The drawing engine (canvases, pen/highlighter/eraser/select, zoom,
+  undo/redo) is now one component shared by the ink-note view and the inline
+  editor. Ink-note behavior is unchanged.
 
 ## [1.2.7] - 2026-08-12
 

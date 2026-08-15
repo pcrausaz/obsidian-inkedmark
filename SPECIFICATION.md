@@ -100,8 +100,8 @@ container; vertical extent grows with content.
 2. **Inline embed in a normal note** — inside any `.md` note:
    - `![[Sketch.ink.md]]` renders the referenced ink note inline (read-only or
      interactive), or
-   - a fenced ```` ```inkedmark ```` block holds a small inline annotation drawn
-     in place.
+   - a fenced ```` ```inkedmark ```` block holds a small inline annotation,
+     rendered in place and drawn in a full-size editor modal (§4.2).
 
    Either way the host note stays markdown; typed text and handwriting coexist.
 
@@ -684,6 +684,14 @@ obsidian-inkedmark/
   Cloud AI in accuracy — positioned as the privacy/offline fallback. Cloud
   BYOK is the quality path (verified: Opus transcribed a test page
   flawlessly).
+- **1.3 — Editable inline blocks. ✅ shipped (1.3.0, 2026-08-15).** Closed the
+  authoring gap reported in issue #18: the drawing engine was extracted from
+  the ink view into `view/ink-surface.ts` and reused by `InlineInkModal`
+  (§4.2); ```` ```inkedmark ```` blocks open in a modal editor from a corner
+  button and are written back on close, with the caption acting as the block's
+  text layer (manual, toolbar recognize, or auto-recognize-on-close). Verified
+  on desktop and iPad. _Lesson:_ Obsidian's `Modal` has an undocumented
+  read-only `doc` getter — subclasses must not declare a `doc` field.
 
 ---
 

@@ -24,7 +24,8 @@ and Obsidian's search and graph see all of it through a first-class text layer.
   (transcription, key points, `[[links]]`, `#tags`) that Obsidian's core
   search, graph, backlinks, and Quick Switcher index with no extra work.
 - **Inline sketches** — embed a handwriting note with `![[Sketch.ink.md]]`, or
-  drop a small ` ```inkedmark ` block right inside any note.
+  drop a small ` ```inkedmark ` block right inside any note and draw into it
+  from a full-size editor.
 - **Built for Apple Pencil** — pressure-variable ink (perfect-freehand),
   full-rate capture via coalesced events, palm rejection, and a low-latency
   wet/dry canvas split. Works on desktop, iPad, and mobile.
@@ -101,7 +102,8 @@ section too (your own prose in the text layer is never touched).
 #### Network use disclosure
 
 InkedMark makes network requests **only** for recognition, and only in three
-cases: (1) _Cloud AI_ sends a rendered PNG of the current note's ink to your
+cases: (1) _Cloud AI_ sends a rendered PNG of the ink being recognized (an ink
+note, or an inline block open in its editor) to your
 chosen vendor (Anthropic, OpenAI, Google, or OpenRouter) — or to the custom
 endpoint URL you configured — using your API key, after a one-time
 confirmation; (2) clicking **Connect OpenRouter** opens openrouter.ai in your
@@ -126,12 +128,28 @@ its links become real graph edges.
 - `![[Sketch.ink.md]]` renders the sketch inside any note (reading mode and
   live preview).
 - ` ```inkedmark ` blocks hold a small drawing in place, with an optional
-  `caption:` line that doubles as its searchable text. Tap the expand icon in the
-  block's corner (reading mode or Live Preview) to draw in a full-size editor;
-  the strokes are saved back into the block when you close it. Or run
-  **Insert inline handwriting** to insert a block and start drawing at once.
-  The caption is the block's text layer: edit it in the editor's text panel,
-  or let **Recognize handwriting** fill it in.
+  `caption:` line that doubles as its searchable text.
+
+#### Editing an inline block
+
+Inline blocks are drawn in a **full-size editor**, not in place: tap the
+expand icon in the block's corner (reading mode or Live Preview) and the block
+opens in a modal with the same toolbar as an ink note (full-screen on iPad).
+Or run **Insert inline handwriting** to insert a block and open the editor at
+once. Good to know:
+
+- **Closing saves.** _Done_, the ✕ button, or `Esc` write the strokes back into
+  the block; **Discard changes** throws the session away. The note updates as
+  soon as the editor closes.
+- **The caption is the block's text layer.** Open the text panel (toolbar `📄`)
+  to type it, or press the scan button to have the recognition provider fill
+  it in (collapsed to a single line). With **Recognize automatically** on, this
+  happens by itself when you close the editor after drawing.
+- **Nothing outside the block is touched.** The plugin rewrites only the
+  `caption:` and payload lines of that one fenced block. If the note changed
+  underneath and the block can't be located unambiguously, the save is refused
+  with a notice rather than guessed; a block whose payload can't be decoded has
+  no edit icon and is never overwritten.
 
 ### File format
 
