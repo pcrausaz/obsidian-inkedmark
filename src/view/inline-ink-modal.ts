@@ -39,6 +39,8 @@ export class InlineInkModal extends Modal {
   private showCaption = false;
   private caption: string | null;
   private dirty = false;
+  /** Strokes changed this session (drives auto-recognition on close). */
+  private inkDirty = false;
   private discarded = false;
   private readonly toolState: ToolbarState;
 
@@ -105,6 +107,7 @@ export class InlineInkModal extends Modal {
       {
         onChange: () => {
           this.dirty = true;
+          this.inkDirty = true;
         },
         onStatus: () => this.updateStatus(),
         onToolChange: () => this.toolbar?.setState(this.toolState),
@@ -202,6 +205,9 @@ export class InlineInkModal extends Modal {
         this.caption = text;
         if (this.captionInput) this.captionInput.value = text;
         this.dirty = true;
+        // The caption now reflects this ink; a close-time auto pass would only
+        // repeat the request.
+        this.inkDirty = false;
         if (!this.showCaption) this.toggleCaptionPanel();
         new Notice("InkedMark: transcription added as the caption — review and edit it.");
       } else if (!auto) {
@@ -221,9 +227,21 @@ export class InlineInkModal extends Modal {
     this.surface = null;
     this.toolbar?.destroy();
     this.toolbar = null;
+    this.captionPanelEl = null;
+    this.captionInput = null;
     this.contentEl.empty();
-    if (this.dirty && !this.discarded) {
-      this.onSave({ doc: this.inkDoc, caption: this.caption });
-    }
+    if (!this.dirty || this.discarded) return;
+
+    const save = (): void => this.onSave({ doc: this.inkDoc, caption: this.caption });
+    // "Recognize automatically": an idle timer makes little sense in a modal
+    // session, so the automatic pass runs once on close when the ink changed.
+    // `auto` keeps it silent — no consent prompt, no chatter, and skipped for
+    // providers that don't use the network (manual has nothing to add).
+    const auto =
+      this.inkDirty &&
+      this.plugin.settings.autoRecognize &&
+      this.plugin.activeProvider().requiresNetwork;
+    if (auto) void this.plugin.runRecognition(this, true).finally(save);
+    else save();
   }
 }

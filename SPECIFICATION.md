@@ -183,7 +183,9 @@ buffer, since the file may not be flushed yet). An unreadable payload is never
 overwritten. The `caption:` line is the block's text layer: the editor's text
 panel edits it and "Recognize handwriting" writes the (single-line-collapsed)
 transcription into it — the same `runRecognition` consent path as ink notes,
-via the `RecognitionTarget` interface.
+via the `RecognitionTarget` interface. "Recognize automatically" runs once
+on close when the ink changed (an idle timer makes no sense in a modal
+session); it is silent and never prompts for consent.
 
 ### 4.3 Stroke document (pre-compression JSON)
 Compact by construction: **tuple-packed points** and **quantized coordinates**.

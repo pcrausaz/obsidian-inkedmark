@@ -20,7 +20,8 @@ Inline handwriting blocks are finally editable.
   back into the block when you close it. "Insert inline handwriting" opens the
   editor right after inserting the block. The block's caption acts as its
   text layer: edit it in the editor's text panel or fill it with **Recognize
-  handwriting**. Captions are preserved; unreadable
+  handwriting** (with **Recognize automatically** on, this happens when you
+  close the editor). Captions are preserved; unreadable
   payloads are never overwritten; if the block can't be located unambiguously
   in the note the save is refused with a notice instead of guessing.
 
