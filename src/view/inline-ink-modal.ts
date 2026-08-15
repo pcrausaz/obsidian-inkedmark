@@ -24,13 +24,13 @@ export class InlineInkModal extends Modal {
   private readonly toolState: ToolbarState;
 
   /**
-   * @param doc    document to edit (mutated in place)
+   * @param inkDoc document to edit (mutated in place; `doc` is taken by Modal)
    * @param onSave called on close when the drawing changed and wasn't discarded
    */
   constructor(
     app: App,
     private readonly settings: InkedMarkSettings,
-    private readonly doc: InkDocument,
+    private readonly inkDoc: InkDocument,
     private readonly onSave: (doc: InkDocument) => void,
   ) {
     super(app);
@@ -77,7 +77,7 @@ export class InlineInkModal extends Modal {
 
     this.surface = new InkSurface(
       root,
-      this.doc,
+      this.inkDoc,
       this.toolState,
       {
         paperWidth: this.settings.paperWidth,
@@ -140,6 +140,6 @@ export class InlineInkModal extends Modal {
     this.toolbar?.destroy();
     this.toolbar = null;
     this.contentEl.empty();
-    if (this.dirty && !this.discarded) this.onSave(this.doc);
+    if (this.dirty && !this.discarded) this.onSave(this.inkDoc);
   }
 }
