@@ -165,9 +165,22 @@ caption: Quick margin sketch
 v1:eJy...<base64(deflate(strokeDocJSON))>...
 ```
 ````
-Rendered inline by a markdown post-processor (reading mode) and a CodeMirror
-editor extension (live preview — phased, §15). Optional `caption:` line is the
+Rendered by a code-block processor (reading mode and Live Preview alike, since
+Obsidian runs those processors in both). Optional `caption:` line is the
 searchable text for the inline block.
+
+**Editing.** Pen input can't happen in place: the host page owns scrolling,
+and every write to the note tears the rendered block down and re-renders it.
+So the block carries a pencil button that opens `InlineInkModal` — the same
+`InkSurface` + toolbar as an ink note, in a large modal (full-screen on
+mobile). On close the strokes are re-encoded and written back into the fenced
+block: the block is located by `getSectionInfo` line range, verified against
+the rendered source, with a content-based scan as fallback; if the block can't
+be found unambiguously the save is refused with a notice rather than guessed
+(pure helpers in `model/inline-block.ts`). "Insert inline handwriting" inserts
+the block and opens the editor at once (writing back through the editor
+buffer, since the file may not be flushed yet). An unreadable payload is never
+overwritten.
 
 ### 4.3 Stroke document (pre-compression JSON)
 Compact by construction: **tuple-packed points** and **quantized coordinates**.
@@ -251,7 +264,7 @@ src/
     pointer-controller.ts  # pointer events, getCoalescedEvents/getPredictedEvents,
                            #   gesture routing, capture.
     palm-rejection.ts      # PURE state machine: pen vs touch arbitration.
-                           # (Tool behavior lives in view/ink-view.ts + toolbar;
+                           # (Tool behavior lives in view/ink-surface.ts + toolbar;
                            #   panning is a gesture, not a tool strategy.)
 
   recognition/
@@ -260,11 +273,15 @@ src/
     text-layer.ts          # PURE: sync rules between region text and md body.
 
   view/
-    ink-view.ts            # TextFileView for *.ink.md: canvas + text panel,
-                           #   toolbar, save/load wiring.
+    ink-surface.ts         # the drawing engine (canvases, pointer input, tools,
+                           #   zoom, undo/redo, HUD), shared by the two hosts below.
+    ink-view.ts            # TextFileView for *.ink.md: InkSurface + toolbar +
+                           #   text panel, save/load wiring, recognition.
+    inline-ink-modal.ts    # editor modal for ```inkedmark``` blocks (InkSurface
+                           #   + toolbar); strokes written back on close.
     embed-processor.ts     # markdown post-processor: ![[*.ink.md]] embeds and
-                           #   ```inkedmark``` blocks.
-    toolbar.ts             # toolbar DOM, reused by view and embeds.
+                           #   ```inkedmark``` blocks (render + pencil → modal).
+    toolbar.ts             # toolbar DOM, reused by view and modal.
   ui/
     confirm-modal.ts       # async confirm (replaces blocking confirm()).
   icons.ts                 # bundled Lucide SVGs via addIcon (mobile-safe).
@@ -698,6 +715,8 @@ Suggested kickoff for the new session:
   (accurate, networked). Decide after v1 ships, informed by user demand.
 - **Live-preview rendering of inline blocks** (Cm6 editor extension) is more work
   than the reading-mode post-processor — intentionally phased to 0.4.
+  _Resolved (1.3.0):_ no CM6 extension needed — code-block processors already
+  run in Live Preview; editing goes through a modal (§4.2), not in place.
 - **Latency Go/No-Go.** _Resolved: GO (0.1)._ On an iPad Pro 12.9″ 4th‑gen
   (A12Z, Apple Pencil 2) in the Obsidian web view, wet‑ink latency and capture
   are smooth once the wet layer draws synchronously (desynchronized ctx),

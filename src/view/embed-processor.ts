@@ -2,11 +2,13 @@
  * Inline rendering of handwriting in ordinary notes (§4.2, §15 phase 0.3/0.4).
  *
  * - ```inkedmark``` fenced blocks: a code-block processor decodes the payload and
- *   paints it read-only onto a static, DPR-aware canvas. Obsidian runs code-block
- *   processors in BOTH reading mode and Live Preview (when the block isn't being
- *   edited), so this already covers live preview — a separate CM6 widget would be
- *   redundant and risk breaking source editing. Interactive inline drawing stays
- *   in dedicated `.ink.md` notes.
+ *   paints it onto a static, DPR-aware canvas, with a pencil button that opens
+ *   the block in `InlineInkModal`; on close the new strokes are written back
+ *   into the fenced block (located via `getSectionInfo`, with a content-based
+ *   fallback when the note moved underneath the render). Obsidian runs
+ *   code-block processors in BOTH reading mode and Live Preview (when the block
+ *   isn't being edited), so this covers both — pen input in place would fight
+ *   the page's scrolling and be torn down on every file change.
  * - `![[*.ink.md]]` file embeds: a post-processor renders the referenced note's
  *   ink inline. Obsidian populates embeds asynchronously and can clobber our
  *   render in reading mode, so we re-paint via a bounded MutationObserver.
@@ -15,24 +17,33 @@
 import {
   MarkdownRenderChild,
   type MarkdownPostProcessorContext,
+  Notice,
   type Plugin,
   type TFile,
+  setIcon,
 } from "obsidian";
 import { DEFAULT_HIGHLIGHTER_ALPHA, INK_FILE_SUFFIX } from "../constants";
 import { resolveInkColor } from "../canvas/ink-color";
 import { outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
-import { type Bounds, type InkDocument, documentBounds } from "../model/document";
-import { parseInlineBlock } from "../model/inline-block";
-import { SerializeError, decodeDocument, parseInkFile } from "../model/serialize";
+import { type Bounds, type InkDocument, documentBounds, emptyDocument } from "../model/document";
+import {
+  findInlineBlock,
+  parseInlineBlock,
+  replaceInlineBlock,
+  updateInlineBlockPayload,
+} from "../model/inline-block";
+import { SerializeError, decodeDocument, encodeDocument, parseInkFile } from "../model/serialize";
+import { InlineInkModal } from "./inline-ink-modal";
+import type InkedMarkPlugin from "../main";
 
 const MAX_DPR = 3;
 const PAD = 6;
 const MAX_REPAINTS = 5;
 
-export function registerInkEmbeds(plugin: Plugin): void {
+export function registerInkEmbeds(plugin: InkedMarkPlugin): void {
   // ```inkedmark``` fenced blocks (renders in reading mode AND live preview).
-  plugin.registerMarkdownCodeBlockProcessor("inkedmark", (source, el) => {
-    renderInlineBlock(source, el);
+  plugin.registerMarkdownCodeBlockProcessor("inkedmark", (source, el, ctx) => {
+    renderInlineBlock(plugin, source, el, ctx);
   });
   // ![[*.ink.md]] file embeds -> render the referenced note's ink inline.
   plugin.registerMarkdownPostProcessor((el, ctx) => {
@@ -97,31 +108,96 @@ function mountFileEmbed(
   void paint();
 }
 
-function renderInlineBlock(source: string, el: HTMLElement): void {
-  const container = el.createDiv({ cls: "inkedmark-embed" });
+function renderInlineBlock(
+  plugin: InkedMarkPlugin,
+  source: string,
+  el: HTMLElement,
+  ctx: MarkdownPostProcessorContext,
+): void {
+  const container = el.createDiv({ cls: "inkedmark-embed inkedmark-embed-editable" });
   const { caption, payload } = parseInlineBlock(source);
 
-  if (!payload) {
-    container.createDiv({ cls: "inkedmark-embed-empty", text: "Empty handwriting block" });
-  } else {
-    let doc: InkDocument | null = null;
+  let doc: InkDocument | null = null;
+  let unreadable = false;
+  if (payload) {
     try {
       doc = decodeDocument(payload);
     } catch (error) {
       if (!(error instanceof SerializeError)) throw error;
-    }
-    const bounds = doc ? documentBounds(doc) : null;
-    if (doc && bounds) {
-      drawStatic(container, doc, bounds);
-    } else {
-      container.createDiv({
-        cls: "inkedmark-embed-empty",
-        text: doc ? "Empty handwriting block" : "Unreadable handwriting block",
-      });
+      unreadable = true;
     }
   }
-
+  const bounds = doc ? documentBounds(doc) : null;
+  if (doc && bounds) {
+    drawStatic(container, doc, bounds);
+  } else {
+    container.createDiv({
+      cls: "inkedmark-embed-empty",
+      text: unreadable
+        ? "Unreadable handwriting block"
+        : "Empty handwriting block — tap the pencil to draw",
+    });
+  }
   if (caption) container.createDiv({ cls: "inkedmark-embed-caption", text: caption });
+
+  // An unreadable payload is never overwritten: editing would replace ink we
+  // failed to decode. The user can still fix or delete the block in source.
+  if (unreadable) return;
+  const edit = container.createEl("button", { cls: "inkedmark-embed-edit clickable-icon" });
+  setIcon(edit, "pencil");
+  edit.setAttribute("aria-label", "Edit handwriting");
+  // Keep the press inside the widget: in Live Preview a mousedown that reaches
+  // CodeMirror would move the cursor into the block and unmount this render.
+  edit.addEventListener("mousedown", (event) => event.stopPropagation());
+  edit.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // Re-decode for the editor so a cancelled session can't leave the rendered
+    // (shared) document mutated.
+    let editDoc: InkDocument;
+    try {
+      editDoc = payload ? decodeDocument(payload) : emptyDocument(plugin.settings.paperWidth);
+    } catch {
+      editDoc = emptyDocument(plugin.settings.paperWidth);
+    }
+    // Capture the section position now: after the modal closes the element may
+    // already be detached (Live Preview re-renders eagerly).
+    const info = ctx.getSectionInfo(el);
+    const hint = info ? { lineStart: info.lineStart, lineEnd: info.lineEnd } : undefined;
+    new InlineInkModal(plugin.app, plugin.settings, editDoc, (edited) => {
+      void writeInlineBlock(plugin, ctx.sourcePath, source, hint, edited);
+    }).open();
+  });
+}
+
+/** Persist an edited inline block: replace its payload line inside the fenced block. */
+async function writeInlineBlock(
+  plugin: InkedMarkPlugin,
+  sourcePath: string,
+  source: string,
+  hint: { lineStart: number; lineEnd: number } | undefined,
+  doc: InkDocument,
+): Promise<void> {
+  const file = plugin.app.vault.getFileByPath(sourcePath);
+  if (!file) {
+    new Notice("InkedMark: couldn't save — the note is no longer available.");
+    return;
+  }
+  const inner = updateInlineBlockPayload(source, encodeDocument(doc));
+  let written = false;
+  await plugin.app.vault.process(file, (data) => {
+    const range = findInlineBlock(data, source, hint);
+    if (!range) return data;
+    written = true;
+    return replaceInlineBlock(data, range, inner);
+  });
+  if (!written) {
+    new Notice(
+      "InkedMark: couldn't find the handwriting block in the note (was it edited meanwhile?). " +
+        "Your drawing was not saved.",
+      8000,
+    );
+  }
 }
 
 function drawStatic(container: HTMLElement, doc: InkDocument, bounds: Bounds): void {

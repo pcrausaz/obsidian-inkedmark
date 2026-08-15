@@ -1,9 +1,9 @@
 /**
- * Toolbar DOM, reused by the ink view (and later by inline embeds).
+ * Toolbar DOM, shared by the ink view and the inline-block editor modal.
  *
- * Phase 0.1 surfaces only what the ink MVP needs: pen, highlighter, a color
- * palette, sizes, a pressure toggle, undo, and clear. Eraser/select/pan/zoom
- * arrive in Phase 0.2.
+ * Pen / highlighter / eraser / select, a color palette, sizes, a pressure
+ * toggle, undo/redo/clear, zoom, and (for ink notes only) the text-layer and
+ * recognition buttons.
  */
 
 import { setIcon } from "obsidian";
@@ -33,13 +33,18 @@ export interface ToolbarCallbacks {
   onRecognize(): void;
 }
 
+export interface ToolbarOptions {
+  /** Show the text-layer / recognize buttons (ink notes only). Default true. */
+  textTools?: boolean;
+}
+
 export class Toolbar {
   private readonly root: HTMLElement;
   private readonly toolButtons = new Map<ActiveTool, HTMLButtonElement>();
   private readonly swatches = new Map<string, HTMLButtonElement>();
   private readonly sizeButtons = new Map<number, HTMLButtonElement>();
   private pressureButton!: HTMLButtonElement;
-  private recognizeButton!: HTMLButtonElement;
+  private recognizeButton: HTMLButtonElement | null = null;
   private statusEl!: HTMLElement;
 
   constructor(
@@ -48,6 +53,7 @@ export class Toolbar {
     private readonly sizes: readonly number[],
     private state: ToolbarState,
     private readonly callbacks: ToolbarCallbacks,
+    private readonly options: ToolbarOptions = {},
   ) {
     this.root = container.createDiv({ cls: "inkedmark-toolbar" });
     this.build();
@@ -100,11 +106,15 @@ export class Toolbar {
     this.iconButton("zoom-out", "Zoom out", () => this.callbacks.onZoomOut());
     this.iconButton("maximize", "Fit / reset view", () => this.callbacks.onZoomReset());
     this.iconButton("zoom-in", "Zoom in", () => this.callbacks.onZoomIn());
-    this.addSeparator();
-    this.iconButton("file-text", "Text layer (transcription)", () => this.callbacks.onToggleText());
-    this.recognizeButton = this.iconButton("scan-text", "Recognize handwriting", () =>
-      this.callbacks.onRecognize(),
-    );
+    if (this.options.textTools !== false) {
+      this.addSeparator();
+      this.iconButton("file-text", "Text layer (transcription)", () =>
+        this.callbacks.onToggleText(),
+      );
+      this.recognizeButton = this.iconButton("scan-text", "Recognize handwriting", () =>
+        this.callbacks.onRecognize(),
+      );
+    }
 
     // Right-aligned build/diagnostics readout (pushed right via margin-left:auto).
     this.statusEl = this.root.createSpan({ cls: "inkedmark-status" });
@@ -117,7 +127,7 @@ export class Toolbar {
 
   /** Update the recognize button's tooltip (shows the active engine). */
   setRecognizeLabel(label: string): void {
-    this.recognizeButton.setAttribute("aria-label", label);
+    this.recognizeButton?.setAttribute("aria-label", label);
   }
 
   private addToolButton(tool: ActiveTool, icon: string, label: string): void {

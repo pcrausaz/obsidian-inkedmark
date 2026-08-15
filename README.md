@@ -53,7 +53,8 @@ count, and zoom.
 ### Commands
 
 - **Create handwriting note** — new `*.ink.md` in the current folder.
-- **Insert inline handwriting** — inserts a starter ` ```inkedmark ` block.
+- **Insert inline handwriting** — inserts a ` ```inkedmark ` block and opens
+  the drawing editor for it.
 - **Toggle canvas / markdown view** — see the raw markdown of an ink note.
 - **Toggle text layer panel** — open the transcription panel.
 - **Recognize handwriting in this note** — runs the selected recognition
@@ -125,8 +126,10 @@ its links become real graph edges.
 - `![[Sketch.ink.md]]` renders the sketch inside any note (reading mode and
   live preview).
 - ` ```inkedmark ` blocks hold a small drawing in place, with an optional
-  `caption:` line that doubles as its searchable text. Editing ink inline
-  happens in the dedicated note; inline blocks render read-only.
+  `caption:` line that doubles as its searchable text. Tap the pencil in the
+  block's corner (reading mode or Live Preview) to draw in a full-size editor;
+  the strokes are saved back into the block when you close it. Or run
+  **Insert inline handwriting** to insert a block and start drawing at once.
 
 ### File format
 

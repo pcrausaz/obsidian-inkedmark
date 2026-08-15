@@ -81,10 +81,20 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
 
 - [ ] In a normal note, `![[Sketch.ink.md]]` renders the sketch inline (title +
       ink), fitting the note width; opening the link opens the ink note.
-- [ ] **"Insert inline handwriting"** inserts a ` ```inkedmark ` block;
-      in reading mode a block with strokes renders the ink; an empty one shows a
+- [ ] **"Insert inline handwriting"** inserts a ` ```inkedmark ` block and
+      opens the editor modal; drawing and pressing **Done** puts the ink into
+      the block (source shows a new `v1:` payload); the rendered block shows it.
+- [ ] In reading mode a block with strokes renders the ink; an empty one shows a
       placeholder; a `caption:` line renders below.
-- [ ] A corrupt payload shows "Unreadable…", not a crash.
+- [ ] The pencil in the block's top-right corner opens the editor with the
+      existing strokes; edits (add, erase, undo) are saved on **Done**, ✕ and
+      Escape; **Discard changes** leaves the block untouched. The `caption:`
+      line survives a save verbatim.
+- [ ] Same from Live Preview (cursor outside the block).
+- [ ] iPad: the editor is full-screen; Pencil draws, one-finger drag pans,
+      pinch zooms; closing writes back and the block re-renders.
+- [ ] Two identical blocks in one note: editing one changes only that one.
+- [ ] A corrupt payload shows "Unreadable…" with no pencil, not a crash.
 
 ## P1 — Search & graph integration (spec §6)
 

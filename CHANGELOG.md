@@ -5,6 +5,28 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+Inline handwriting blocks are finally editable.
+
+### Fixed
+
+- ` ```inkedmark ` blocks were rendered read-only and nothing in the plugin
+  could put ink into them, so "Insert inline handwriting" produced a block you
+  could never draw in (#18). Every block now shows a pencil in its corner
+  (reading mode and Live Preview) that opens a full-size drawing editor — the
+  same tools as an ink note, full-screen on mobile — and writes the strokes
+  back into the block when you close it. "Insert inline handwriting" opens the
+  editor right after inserting the block. Captions are preserved; unreadable
+  payloads are never overwritten; if the block can't be located unambiguously
+  in the note the save is refused with a notice instead of guessing.
+
+### Changed
+
+- The drawing engine (canvases, pen/eraser/select tools, zoom, undo/redo) is
+  now a component shared by the ink-note view and the inline editor; ink-note
+  behavior is unchanged.
+
 ## [1.2.7] - 2026-08-12
 
 Maintenance release clearing two build-time dependency advisories. Nothing

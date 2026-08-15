@@ -41,6 +41,7 @@ import { WhatsNewModal } from "./ui/whats-new-modal";
 import { changelogSince, releasedChangelog } from "./changelog";
 import { InkView } from "./view/ink-view";
 import { registerInkEmbeds } from "./view/embed-processor";
+import { InlineInkModal } from "./view/inline-ink-modal";
 import changelogMd from "../CHANGELOG.md";
 
 export default class InkedMarkPlugin extends Plugin {
@@ -130,8 +131,21 @@ export default class InkedMarkPlugin extends Plugin {
       id: "insert-inline-handwriting",
       name: "Insert inline handwriting",
       editorCallback: (editor: Editor) => {
-        const payload = encodeDocument(emptyDocument(this.settings.paperWidth));
-        editor.replaceSelection(buildInlineBlock(payload));
+        const doc = emptyDocument(this.settings.paperWidth);
+        const block = buildInlineBlock(encodeDocument(doc));
+        const from = editor.getCursor("from");
+        editor.replaceSelection(block);
+        const to = editor.getCursor("to");
+        // Open the editor right away; on close, swap the just-inserted block for
+        // the drawn one — through the editor buffer, since the file on disk may
+        // not have been flushed yet.
+        new InlineInkModal(this.app, this.settings, doc, (edited) => {
+          if (editor.getRange(from, to) !== block) {
+            new Notice("InkedMark: the note changed — the drawing was not saved.");
+            return;
+          }
+          editor.replaceRange(buildInlineBlock(encodeDocument(edited)), from, to);
+        }).open();
       },
     });
 
