@@ -5,6 +5,17 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.3.1] - 2026-09-03
+
+Maintenance release — no functional changes.
+
+### Security
+
+- Bumped the transitive dev dependency `fast-uri` to 3.1.7, resolving two
+  Dependabot alerts (SSRF via repeated hostname percent-decoding, host
+  confusion via skipped IDN canonicalization). Dev toolchain only — the
+  shipped plugin bundle does not include this package.
+
 ## [1.3.0] - 2026-08-15
 
 Inline handwriting blocks are finally editable — from a full-size editor,
