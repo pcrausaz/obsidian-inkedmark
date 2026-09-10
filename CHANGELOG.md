@@ -5,6 +5,28 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.3.2] - 2026-09-10
+
+Maintenance release — no functional changes.
+
+### Security
+
+- Bumped the test toolchain to `vitest` / `@vitest/coverage-v8` 4.1.11,
+  resolving the `@vitest/mocker` path-traversal alert
+  (GHSA-82fw-gwwq-j7x9). `vite` is now pinned to 7.x as an explicit dev
+  dependency so the toolchain keeps resolving against the project's esbuild
+  0.25 (vite 8 requires esbuild 0.27+). Dependabot's own PR (#20, vitest 5)
+  failed CI on exactly that conflict and was closed in favour of this bump.
+- Picked up `sharp` 0.35.4 (libheif CVEs, GHSA-rgj7-g3m4-5g8c) and `js-yaml`
+  4.3.2 (merge-key CPU exhaustion, GHSA-2883-xcg3-v3hh) from `npm audit`.
+- Deferred: `adm-zip` GHSA-vwc7-r8mq-g2x9 (symlink-following extraction) has
+  no patched release — 0.6.0 is the latest and is already forced via
+  `overrides`. Build-time only, via `onnxruntime-node`.
+
+None of these packages are part of the shipped plugin bundle (`main.js` uses
+the browser/WASM backend; `sharp`, `onnxruntime-node`, and `adm-zip` are
+absent from it), so vaults are not affected either way.
+
 ## [1.3.1] - 2026-09-03
 
 Maintenance release — no functional changes.
