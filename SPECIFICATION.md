@@ -611,7 +611,7 @@ obsidian-inkedmark/
   tsconfig.json            # strict:true
   .eslintrc.cjs / eslint.config.mjs
   .prettierrc
-  vitest.config.ts
+  vitest.config.mts
   styles.css
   package.json
   README.md
@@ -706,7 +706,7 @@ context and a single source of truth.
 Suggested kickoff for the new session:
 1. `cd` into `obsidian-inkedmark`; read `SPECIFICATION.md`.
 2. Scaffold Phase 0.1: `package.json`, `tsconfig.json` (strict), ESLint +
-   Prettier configs, `vitest.config.ts`, `esbuild.config.mjs`, `version-bump.mjs`,
+   Prettier configs, `vitest.config.mts`, `esbuild.config.mjs`, `version-bump.mjs`,
    `manifest.json` (id `inkedmark`), `.github/workflows/ci.yml`, `.gitignore`.
 3. Implement `model/` (types, serialize, compress) **with tests first** — these
    are pure and define the format.

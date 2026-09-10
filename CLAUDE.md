@@ -35,7 +35,7 @@ not ad hoc.
 ## Commands
 
 - `npm test` — vitest (pure modules only; coverage thresholds enforced, see
-  vitest.config.ts `include` list — add new pure modules there)
+  vitest.config.mts `include` list — add new pure modules there)
 - `npm run typecheck` / `npm run lint` / `npm run format:check` — all must be
   clean; lint runs with `--max-warnings 0`
 - `npm run build` — typecheck + production esbuild bundle

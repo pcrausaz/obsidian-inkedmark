@@ -9,7 +9,14 @@ export default tseslint.config(
     linterOptions: { reportUnusedDisableDirectives: "off" },
   },
   {
-    ignores: ["main.js", "coverage/**", "node_modules/**", "**/*.mjs", "*.config.ts"],
+    ignores: [
+      "main.js",
+      "coverage/**",
+      "node_modules/**",
+      "**/*.mjs",
+      "*.config.ts",
+      "*.config.mts",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
