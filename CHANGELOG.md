@@ -5,6 +5,18 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.3.4] - 2026-09-11
+
+Maintenance release — no functional changes.
+
+### Security
+
+- Raised the `adm-zip` override to 0.6.1, which blocks extraction from
+  writing through symlinks inside the target (GHSA-vwc7-r8mq-g2x9, deferred
+  since 1.3.2 because no fixed release existed until today). Build-time
+  only, via `onnxruntime-node`; the shipped plugin bundle is unchanged.
+  `npm audit` is clean and the repository has no open Dependabot alerts.
+
 ## [1.3.3] - 2026-09-11
 
 Maintenance release — no functional changes.
