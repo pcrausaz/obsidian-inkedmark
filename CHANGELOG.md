@@ -5,6 +5,23 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.3.3] - 2026-09-11
+
+Maintenance release — no functional changes.
+
+### Changed
+
+- The plugin is now built with `esbuild` 0.28 (was 0.25). The bundled
+  `main.js` differs only by minifier output; behaviour is unchanged. This
+  release exists so the bundle the community directory review rebuilds and
+  compares against is the one produced by the current toolchain (#21).
+- Dev toolchain: `vitest` / `@vitest/coverage-v8` 5.0.0, the temporary
+  `vite@^7` pin from 1.3.2 removed, `@types/node` 22, and Node 22 as the
+  build/test baseline (`engines.node`, `.nvmrc`, CI and release workflows).
+  Dependabot's vitest 5 major (#20) is no longer blocked.
+- Still deferred: `adm-zip` GHSA-vwc7-r8mq-g2x9 (build-time only, no
+  patched release; see 1.3.2).
+
 ## [1.3.2] - 2026-09-10
 
 Maintenance release — no functional changes.
