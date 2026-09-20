@@ -14,8 +14,9 @@ extracted from the matching section of this file by `release.yml`.
   toolbar button, the _Toggle paper guides_ command, or Settings → Paper
   guides, where you also pick the style and the spacing (default 48 paper
   pixels, about 9 mm on an iPad — a little wider than wide-ruled paper,
-  because handwriting on glass tends to run larger). Guides scroll and zoom
-  with the ink and stay crisp at any zoom. They are a writing aid, not
+  because handwriting on glass tends to run larger). Guides stop short of
+  the paper's edges like a notebook, scroll and zoom with the ink, and stay
+  crisp at any zoom. They are a writing aid, not
   content: never stored in the note, never drawn in embeds, never sent to
   handwriting recognition. The colour is tuned for the default light and
   dark themes and can be retuned per theme with a CSS snippet

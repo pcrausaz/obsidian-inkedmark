@@ -710,8 +710,10 @@ obsidian-inkedmark/
   (`--inkedmark-guide-color`, themed light/dark in `styles.css`, overridable
   by user snippets). Default spacing 48 world px (~9 mm on an iPad, just
   above wide-ruled: handwriting on glass runs larger than on paper — no
-  friction, blunter rendering, parallax). Pure geometry in
-  `canvas/guides.ts`. Not included: margin line, page breaks, stroke
+  friction, blunter rendering, parallax). A fixed 20 px side margin
+  (`PAPER_GUIDE_MARGIN`, not a setting) keeps the ruling off the paper edge
+  so it reads as notebook paper rather than graph paper. Pure geometry in
+  `canvas/guides.ts`. Not included: margin _line_, page breaks, stroke
   snapping.
 
 ---

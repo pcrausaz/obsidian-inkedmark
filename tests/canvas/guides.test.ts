@@ -53,6 +53,14 @@ describe("guidePositions", () => {
     expect(guidePositions(48, -100, 100)).toEqual([48, 96]);
   });
 
+  it("keeps columns clear of a side margin at both edges", () => {
+    // 1024 px paper, 20 px margin: 0 and 1008 fall in the margins; 48..960 stay.
+    const cols = guidePositions(48, 20, 1024 - 20);
+    expect(cols[0]).toBe(48);
+    expect(cols[cols.length - 1]).toBe(960);
+    expect(cols).not.toContain(1008);
+  });
+
   it("is empty for an empty or inverted range", () => {
     expect(guidePositions(40, 0, 39)).toEqual([]);
     expect(guidePositions(40, 200, 100)).toEqual([]);

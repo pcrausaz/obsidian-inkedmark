@@ -11,7 +11,11 @@
  *   lowest perceptible latency.
  */
 
-import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_GUIDE_SPACING } from "../constants";
+import {
+  DEFAULT_HIGHLIGHTER_ALPHA,
+  DEFAULT_PAPER_GUIDE_SPACING,
+  PAPER_GUIDE_MARGIN,
+} from "../constants";
 import { type PaperGuide, guidePositions, guideWeight, snapToPixel } from "./guides";
 import { resolveInkColor } from "./ink-color";
 import { type FreehandOptions, outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
@@ -180,10 +184,12 @@ export class Renderer {
     const weight = guideWeight(this.dpr);
     const toDeviceX = (wx: number): number => wx * k + this.offsetX * this.dpr;
     const toDeviceY = (wy: number): number => (wy - this.viewport.scrollY) * k;
-    const left = toDeviceX(0);
-    const right = toDeviceX(this.viewport.width);
+    // Rows span, and columns fall within, the paper minus a side margin.
+    const inner = { from: PAPER_GUIDE_MARGIN, to: this.viewport.width - PAPER_GUIDE_MARGIN };
+    const left = toDeviceX(inner.from);
+    const right = toDeviceX(inner.to);
     const rows = guidePositions(spacing, top, bottom);
-    const cols = guidePositions(spacing, 0, this.viewport.width);
+    const cols = guidePositions(spacing, inner.from, inner.to);
 
     ctx.save();
     ctx.strokeStyle = this.guideColor;

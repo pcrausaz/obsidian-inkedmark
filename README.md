@@ -58,7 +58,8 @@ guides** from the toolbar button, the _Toggle paper guides_ command, or
 settings, and pick **lines**, **dots** or a **grid** plus the spacing. The
 default spacing (48 paper pixels, about 9 mm on an iPad) is a little wider
 than wide-ruled paper, because handwriting on glass tends to run larger than
-on paper. Guides scroll and zoom with the ink and stay crisp at any zoom.
+on paper. Guides stop a little short of the paper's edges, like a notebook,
+and they scroll and zoom with the ink and stay crisp at any zoom.
 
 Guides are a writing aid, not content: they are never stored in the note,
 never drawn in embeds, and never sent to handwriting recognition. Their color
