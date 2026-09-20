@@ -18,6 +18,7 @@ import {
 } from "./constants";
 import { DEFAULT_SETTINGS, InkedMarkSettingTab, type InkedMarkSettings } from "./settings";
 import { ICON_INK_NOTE, registerIcons } from "./icons";
+import type { PaperGuide } from "./canvas/guides";
 import { emptyDocument } from "./model/document";
 import { buildInkFile, encodeDocument } from "./model/serialize";
 import { buildInlineBlock } from "./model/inline-block";
@@ -206,6 +207,12 @@ export default class InkedMarkPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "toggle-paper-guides",
+      name: "Toggle paper guides",
+      callback: () => void this.setPaperGuide({ visible: !this.settings.paperGuideVisible }, true),
+    });
+
+    this.addCommand({
       id: "toggle-input-debug-overlay",
       name: "Toggle input debug overlay",
       callback: () => void this.toggleDebugHud(),
@@ -390,6 +397,25 @@ export default class InkedMarkPlugin extends Plugin {
       if (leaf.view instanceof InkView) leaf.view.setDebug(enabled);
     }
     if (notify) new Notice(`InkedMark input debug overlay ${enabled ? "on" : "off"}`);
+  }
+
+  /**
+   * Update the paper-guide preference (visibility, style, spacing) and apply it
+   * to every open ink view — shared by the settings tab, toolbar, and command.
+   */
+  async setPaperGuide(
+    patch: { visible?: boolean; style?: PaperGuide; spacing?: number },
+    notify = false,
+  ): Promise<void> {
+    const settings = this.settings;
+    if (patch.visible !== undefined) settings.paperGuideVisible = patch.visible;
+    if (patch.style !== undefined) settings.paperGuide = patch.style;
+    if (patch.spacing !== undefined) settings.paperGuideSpacing = patch.spacing;
+    await this.saveSettings();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INK)) {
+      if (leaf.view instanceof InkView) leaf.view.applyPaperGuide();
+    }
+    if (notify) new Notice(`InkedMark paper guides ${settings.paperGuideVisible ? "on" : "off"}`);
   }
 
   private async toggleDebugHud(): Promise<void> {

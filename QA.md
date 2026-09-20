@@ -61,6 +61,25 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
 - [ ] Clear (trash) removes all ink and is undoable.
 - [ ] Default ink color is visible on the current theme (white on dark).
 
+## P1 — Paper guides (1.4)
+
+- [ ] Toolbar button toggles guides on/off and highlights when on; the state
+      persists across notes and an app restart (it is a setting, not per-note).
+- [ ] Settings → Guide style switches lines / dots / grid live in an open ink
+      view; the Guide spacing slider changes spacing live.
+- [ ] Guides scroll with the ink and scale with zoom (pinch and toolbar); lines
+      stay one crisp hairline at 100%, 125% and 200% — no blurry 2px lines, no
+      uneven brightness between rows.
+- [ ] Discreet but visible on both default themes; ink and highlighter stay
+      clearly readable over them. A light ↔ dark theme flip recolours the
+      guides without reopening the note.
+- [ ] Guides show in the inline-block editor modal; its toolbar toggle persists
+      like the ink view's.
+- [ ] Guides never appear in `![[note.ink.md]]` embeds, rendered inline blocks,
+      or the recognition image (run Cloud AI once with guides on — the
+      transcription is unaffected).
+- [ ] `Toggle paper guides` command works from the palette and shows a notice.
+
 ## P1 — Persistence
 
 - [ ] Draw, wait a moment, **close and reopen** the note — ink is exactly as left.

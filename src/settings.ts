@@ -9,13 +9,23 @@ import {
 } from "obsidian";
 import {
   DEFAULT_HIGHLIGHTER_ALPHA,
+  DEFAULT_PAPER_GUIDE_SPACING,
   DEFAULT_PAPER_WIDTH,
+  MAX_PAPER_GUIDE_SPACING,
+  MIN_PAPER_GUIDE_SPACING,
   PALETTE,
+  PAPER_GUIDE_SPACING_STEP,
   SIZES,
   TROCR_MODELS,
   TROCR_PROVIDER_ID,
   type TrocrSize,
 } from "./constants";
+import {
+  PAPER_GUIDE_LABELS,
+  type PaperGuide,
+  clampGuideSpacing,
+  normalizePaperGuide,
+} from "./canvas/guides";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import {
   DEFAULT_MODELS,
@@ -39,6 +49,11 @@ export interface InkedMarkSettings {
   defaultSize: number;
   highlighterAlpha: number;
   paperWidth: number;
+  /** Paper guides (ruled lines / dots / grid) under the ink while writing. */
+  paperGuideVisible: boolean;
+  paperGuide: PaperGuide;
+  /** Distance between guide rows/columns, in world CSS px. */
+  paperGuideSpacing: number;
   recognitionProviderId: string;
   twoFileStorage: boolean;
   desynchronizedCanvas: boolean;
@@ -80,6 +95,9 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   defaultSize: SIZES[1],
   highlighterAlpha: DEFAULT_HIGHLIGHTER_ALPHA,
   paperWidth: DEFAULT_PAPER_WIDTH,
+  paperGuideVisible: false,
+  paperGuide: "lines",
+  paperGuideSpacing: DEFAULT_PAPER_GUIDE_SPACING,
   recognitionProviderId: MANUAL_PROVIDER_ID,
   twoFileStorage: false,
   desynchronizedCanvas: true,
@@ -139,6 +157,18 @@ const HTTP_WARNING_CALLOUT: CalloutText = {
     "with “tailscale serve” or a Cloudflare Tunnel (see SELF_HOSTING.md). " +
     "Also note that “localhost” on an iPad is the iPad itself, not your server.",
 };
+
+const PAPER_GUIDE_DESC =
+  "Show ruled lines, dots or a grid under the ink while you write — a writing aid, " +
+  "never part of the note: embeds and recognition images stay clean. " +
+  "Also toggled from the toolbar.";
+
+const PAPER_GUIDE_STYLE_DESC = "Pattern of the paper guides.";
+
+const PAPER_GUIDE_SPACING_DESC =
+  `Distance between guides, in paper pixels (${DEFAULT_PAPER_GUIDE_SPACING} is about ` +
+  "9 mm on an iPad — a little wider than wide-ruled paper, since handwriting on glass " +
+  "tends to run larger). Guides scale with zoom.";
 
 /** Hex swatches parsed from the comma-separated custom-colors field. */
 function parseCustomColors(value: string): string[] {
@@ -280,6 +310,30 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         visible: () => this.paperWidthInvalid,
         render: (setting) =>
           this.renderBlock(setting, (el) => buildCallout(el, PAPER_WIDTH_CALLOUT)),
+      },
+      {
+        name: "Paper guides",
+        desc: PAPER_GUIDE_DESC,
+        aliases: ["ruled lines", "lined paper", "dot grid", "template"],
+        control: { type: "toggle", key: "paperGuideVisible" },
+      },
+      {
+        name: "Guide style",
+        desc: PAPER_GUIDE_STYLE_DESC,
+        aliases: ["lines", "dots", "grid"],
+        control: { type: "dropdown", key: "paperGuide", options: PAPER_GUIDE_LABELS },
+      },
+      {
+        name: "Guide spacing",
+        desc: PAPER_GUIDE_SPACING_DESC,
+        aliases: ["line spacing", "ruling"],
+        control: {
+          type: "slider",
+          key: "paperGuideSpacing",
+          min: MIN_PAPER_GUIDE_SPACING,
+          max: MAX_PAPER_GUIDE_SPACING,
+          step: PAPER_GUIDE_SPACING_STEP,
+        },
       },
       {
         name: "Default ink color",
@@ -523,6 +577,16 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         // Saves settings itself and propagates the overlay to open ink views.
         await this.plugin.setDebugHud(value as boolean);
         return;
+      // setPaperGuide saves and propagates to open ink views.
+      case "paperGuideVisible":
+        await this.plugin.setPaperGuide({ visible: value as boolean });
+        return;
+      case "paperGuide":
+        await this.plugin.setPaperGuide({ style: normalizePaperGuide(value) });
+        return;
+      case "paperGuideSpacing":
+        await this.plugin.setPaperGuide({ spacing: clampGuideSpacing(Number(value)) });
+        return;
       default:
         (settings as unknown as Record<string, unknown>)[key] = value;
         break;
@@ -623,6 +687,38 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       );
     paperWidthCallout = buildCallout(containerEl, PAPER_WIDTH_CALLOUT);
     paperWidthCallout.toggle(false);
+
+    new Setting(containerEl)
+      .setName("Paper guides")
+      .setDesc(PAPER_GUIDE_DESC)
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.paperGuideVisible).onChange(async (value) => {
+          await this.plugin.setPaperGuide({ visible: value });
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Guide style")
+      .setDesc(PAPER_GUIDE_STYLE_DESC)
+      .addDropdown((dropdown) => {
+        for (const [id, label] of Object.entries(PAPER_GUIDE_LABELS)) dropdown.addOption(id, label);
+        dropdown.setValue(this.plugin.settings.paperGuide).onChange(async (value) => {
+          await this.plugin.setPaperGuide({ style: normalizePaperGuide(value) });
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Guide spacing")
+      .setDesc(PAPER_GUIDE_SPACING_DESC)
+      .addSlider((slider) =>
+        slider
+          .setLimits(MIN_PAPER_GUIDE_SPACING, MAX_PAPER_GUIDE_SPACING, PAPER_GUIDE_SPACING_STEP)
+          .setValue(this.plugin.settings.paperGuideSpacing)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            await this.plugin.setPaperGuide({ spacing: clampGuideSpacing(value) });
+          }),
+      );
 
     new Setting(containerEl)
       .setName("Default ink color")

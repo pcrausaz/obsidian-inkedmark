@@ -5,6 +5,22 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.4.0] - 2026-09-20
+
+### Added
+
+- **Paper guides** (#22): ruled lines, a dot grid or a square grid under the
+  ink, for people who write neater on lined paper. Toggle them from the new
+  toolbar button, the _Toggle paper guides_ command, or Settings → Paper
+  guides, where you also pick the style and the spacing (default 48 paper
+  pixels, about 9 mm on an iPad — a little wider than wide-ruled paper,
+  because handwriting on glass tends to run larger). Guides scroll and zoom
+  with the ink and stay crisp at any zoom. They are a writing aid, not
+  content: never stored in the note, never drawn in embeds, never sent to
+  handwriting recognition. The colour is tuned for the default light and
+  dark themes and can be retuned per theme with a CSS snippet
+  (`--inkedmark-guide-color`).
+
 ## [1.3.4] - 2026-09-11
 
 Maintenance release — no functional changes.

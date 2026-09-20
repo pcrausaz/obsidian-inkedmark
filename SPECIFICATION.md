@@ -260,6 +260,7 @@ src/
     viewport.ts            # PURE-ish: scroll/zoom transform, screen<->world.
     spatial-index.ts       # PURE: uniform grid (or quadtree) for hit-test+cull.
     hit-test.ts            # PURE: stroke hit, rect intersect, bounds.
+    guides.ts              # PURE: paper-guide geometry (rows/cols, pixel snap).
     renderer.ts            # DOM: dry-layer (committed strokes, rAF, culled,
                            #   static cache) + wet-layer (in-progress stroke +
                            #   selection, drawn synchronously for low latency);
@@ -424,6 +425,9 @@ export interface InkedMarkSettings {
   defaultSize: number;             // index/value into SIZES
   highlighterAlpha: number;        // 0..1, default ~0.4
   paperWidth: number;              // logical px width of the roll, default 1024
+  paperGuideVisible: boolean;      // paper guides on/off (also toolbar + command)
+  paperGuide: "lines" | "dots" | "grid";
+  paperGuideSpacing: number;       // world px between guides, default 48
   recognitionProviderId: string;   // "manual" | "llm" | "trocr"
   twoFileStorage: boolean;         // future; default false (single-file)
   desynchronizedCanvas: boolean;   // default true; escape hatch if platform buggy
@@ -465,7 +469,7 @@ cancelling an OpenRouter connect, debug HUD propagation) live in
 
 - **Commands** (palette): `Create handwriting note`, `Insert inline handwriting`,
   `Toggle canvas / markdown view`, `Recognize handwriting in this note` (no-op in
-  v1), `Fit / Reset view`, `View changelog`.
+  v1), `Fit / Reset view`, `Toggle paper guides`, `View changelog`.
 - **What's new:** CHANGELOG.md is bundled as text at build time; after an
   update, the first launch shows the sections newer than the persisted
   `lastSeenVersion` (pure parsing in `src/changelog.ts`; modal in
@@ -474,7 +478,7 @@ cancelling an OpenRouter connect, debug HUD propagation) live in
 - **Ribbon:** create handwriting note.
 - **Toolbar** (`view/toolbar.ts`): pen, highlighter, eraser, select;
   color palette + custom-color add/remove; sizes; pressure toggle; undo/redo;
-  zoom in/out/fit/reset; delete selection; clear. Mobile-safe icons (bundled
+  zoom in/out/fit/reset; paper-guides toggle; delete selection; clear. Mobile-safe icons (bundled
   Lucide via `addIcon`, explicit SVG width/height attributes, text-label
   fallback) — carry forward the prior plugin's hard-won WebKit fixes.
 - **Keyboard:** `P` pen, `H` highlighter, `E` eraser, `V` select,
@@ -692,6 +696,23 @@ obsidian-inkedmark/
   text layer (manual, toolbar recognize, or auto-recognize-on-close). Verified
   on desktop and iPad. _Lesson:_ Obsidian's `Modal` has an undocumented
   read-only `doc` getter — subclasses must not declare a `doc` field.
+- **1.4 — Paper guides.** Issue #22 (a user writes neater on ruled paper):
+  ruled lines / dot grid / square grid under the ink. Decisions: a **global
+  preference**, not per-note (no format change, no file write on toggle;
+  per-note templates only if asked for); shown **only on the editing
+  surface** (ink view + inline modal) — never in embeds or the recognition
+  image, since guides are a writing aid, not content; the toolbar toggle
+  **persists** (unlike the session-only pressure button) because it is a
+  stable preference. Rendering: painted on the dry canvas under the ink, in
+  device space with pixel-snapped hairlines of constant weight, so they stay
+  crisp at any zoom (a CSS gradient on the paper background goes uneven at
+  fractional zoom). Colour from a CSS custom property
+  (`--inkedmark-guide-color`, themed light/dark in `styles.css`, overridable
+  by user snippets). Default spacing 48 world px (~9 mm on an iPad, just
+  above wide-ruled: handwriting on glass runs larger than on paper — no
+  friction, blunter rendering, parallax). Pure geometry in
+  `canvas/guides.ts`. Not included: margin line, page breaks, stroke
+  snapping.
 
 ---
 

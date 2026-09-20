@@ -290,6 +290,18 @@
   background: var(--background-secondary);
 }
 
+/* Paper guides (ruled lines / dots / grid) painted under the ink. Tuned to
+   stay discreet on the default light and dark themes; override in a CSS
+   snippet to retune for yours, e.g.
+   body.theme-dark { --inkedmark-guide-color: rgba(255, 255, 255, 0.2); } */
+body {
+  --inkedmark-guide-color: rgba(25, 113, 194, 0.32);
+}
+
+body.theme-dark {
+  --inkedmark-guide-color: rgba(255, 255, 255, 0.26);
+}
+
 /* Visible "page" behind the ink, pinned to the viewport (uniform color). */
 .inkedmark-paper-bg {
   position: absolute;

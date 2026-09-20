@@ -11,7 +11,8 @@
  *   lowest perceptible latency.
  */
 
-import { DEFAULT_HIGHLIGHTER_ALPHA } from "../constants";
+import { DEFAULT_HIGHLIGHTER_ALPHA, DEFAULT_PAPER_GUIDE_SPACING } from "../constants";
+import { type PaperGuide, guidePositions, guideWeight, snapToPixel } from "./guides";
 import { resolveInkColor } from "./ink-color";
 import { type FreehandOptions, outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
 import {
@@ -44,6 +45,12 @@ export class Renderer {
   highlighterAlpha = DEFAULT_HIGHLIGHTER_ALPHA;
   /** Paper theme; monochrome ink adapts to it (see canvas/ink-color.ts). */
   darkTheme = false;
+  /** Paper guides painted under the ink on the dry layer; `null` hides them. */
+  guide: PaperGuide | null = null;
+  /** Distance between guide rows/columns, in world CSS px. */
+  guideSpacing = DEFAULT_PAPER_GUIDE_SPACING;
+  /** Guide colour (any CSS colour; resolved from a CSS variable by the host). */
+  guideColor = "rgba(128, 128, 128, 0.2)";
   private readonly dryCtx: CanvasRenderingContext2D;
   private readonly wetCtx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -140,10 +147,10 @@ export class Renderer {
     selectionBounds?: Bounds | null,
   ): void {
     this.clear(this.dryCtx);
-    this.applyTransform(this.dryCtx);
-
     const top = this.viewport.scrollY;
     const bottom = top + this.cssHeight / this.viewport.scale;
+    if (this.guide) this.drawGuides(this.dryCtx, this.guide, top, bottom);
+    this.applyTransform(this.dryCtx);
 
     for (const region of doc.regions) {
       for (const stroke of region.strokes) {
@@ -155,6 +162,63 @@ export class Renderer {
     }
 
     if (selectionBounds) this.strokeRect(this.dryCtx, selectionBounds, 8);
+  }
+
+  /**
+   * Paint paper guides across the visible paper in device space, so hairlines
+   * are pixel-snapped and keep a constant weight regardless of zoom. Called
+   * with the identity transform set (right after `clear`).
+   */
+  private drawGuides(
+    ctx: CanvasRenderingContext2D,
+    guide: PaperGuide,
+    top: number,
+    bottom: number,
+  ): void {
+    const k = this.dpr * this.viewport.scale;
+    const spacing = this.guideSpacing;
+    const weight = guideWeight(this.dpr);
+    const toDeviceX = (wx: number): number => wx * k + this.offsetX * this.dpr;
+    const toDeviceY = (wy: number): number => (wy - this.viewport.scrollY) * k;
+    const left = toDeviceX(0);
+    const right = toDeviceX(this.viewport.width);
+    const rows = guidePositions(spacing, top, bottom);
+    const cols = guidePositions(spacing, 0, this.viewport.width);
+
+    ctx.save();
+    ctx.strokeStyle = this.guideColor;
+    ctx.fillStyle = this.guideColor;
+    ctx.lineWidth = weight;
+
+    if (guide === "dots") {
+      const radius = 1.5 * this.dpr;
+      for (const wy of rows) {
+        const y = toDeviceY(wy);
+        for (const wx of cols) {
+          ctx.beginPath();
+          ctx.arc(toDeviceX(wx), y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else {
+      ctx.beginPath();
+      for (const wy of rows) {
+        const y = snapToPixel(toDeviceY(wy), weight);
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+      }
+      if (guide === "grid") {
+        const y0 = 0;
+        const y1 = this.dpr * this.cssHeight;
+        for (const wx of cols) {
+          const x = snapToPixel(toDeviceX(wx), weight);
+          ctx.moveTo(x, y0);
+          ctx.lineTo(x, y1);
+        }
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** Draw a dashed selection/marquee rectangle in world coords. */

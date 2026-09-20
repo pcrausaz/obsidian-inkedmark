@@ -2,11 +2,12 @@
  * Toolbar DOM, shared by the ink view and the inline-block editor modal.
  *
  * Pen / highlighter / eraser / select, a color palette, sizes, a pressure
- * toggle, undo/redo/clear, zoom, and (for ink notes only) the text-layer and
- * recognition buttons.
+ * toggle, undo/redo/clear, zoom, a paper-guides toggle, and (for ink notes
+ * only) the text-layer and recognition buttons.
  */
 
 import { setIcon } from "obsidian";
+import { ICON_GUIDES } from "../icons";
 
 /** Tools selectable in the toolbar. Only pen/highlighter produce strokes. */
 export type ActiveTool = "pen" | "highlighter" | "eraser" | "select";
@@ -16,6 +17,8 @@ export interface ToolbarState {
   color: string;
   size: number;
   pressureEnabled: boolean;
+  /** Paper guides shown (a persisted preference, mirrored here for the button). */
+  guidesVisible: boolean;
 }
 
 export interface ToolbarCallbacks {
@@ -29,6 +32,7 @@ export interface ToolbarCallbacks {
   onZoomIn(): void;
   onZoomOut(): void;
   onZoomReset(): void;
+  onToggleGuides(): void;
   onToggleText(): void;
   onRecognize(): void;
 }
@@ -44,6 +48,7 @@ export class Toolbar {
   private readonly swatches = new Map<string, HTMLButtonElement>();
   private readonly sizeButtons = new Map<number, HTMLButtonElement>();
   private pressureButton!: HTMLButtonElement;
+  private guidesButton!: HTMLButtonElement;
   private recognizeButton: HTMLButtonElement | null = null;
   private statusEl!: HTMLElement;
 
@@ -106,6 +111,10 @@ export class Toolbar {
     this.iconButton("zoom-out", "Zoom out", () => this.callbacks.onZoomOut());
     this.iconButton("maximize", "Fit / reset view", () => this.callbacks.onZoomReset());
     this.iconButton("zoom-in", "Zoom in", () => this.callbacks.onZoomIn());
+    this.addSeparator();
+    this.guidesButton = this.iconButton(ICON_GUIDES, "Paper guides", () =>
+      this.callbacks.onToggleGuides(),
+    );
     if (this.options.textTools !== false) {
       this.addSeparator();
       this.iconButton("file-text", "Text layer (transcription)", () =>
@@ -163,6 +172,7 @@ export class Toolbar {
       button.toggleClass("is-active", size === this.state.size);
     }
     this.pressureButton.toggleClass("is-active", this.state.pressureEnabled);
+    this.guidesButton.toggleClass("is-active", this.state.guidesVisible);
   }
 
   setState(state: ToolbarState): void {

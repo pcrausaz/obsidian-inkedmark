@@ -15,6 +15,7 @@
 
 import { Modal, Notice, Platform } from "obsidian";
 import { PALETTE, SIZES } from "../constants";
+import { normalizePaperGuide } from "../canvas/guides";
 import { type InkDocument, primaryRegion } from "../model/document";
 import { MANUAL_PROVIDER_ID } from "../recognition/manual";
 import type { RecognitionProvider } from "../recognition/provider";
@@ -63,6 +64,7 @@ export class InlineInkModal extends Modal {
       color: settings.defaultColor,
       size: settings.defaultSize,
       pressureEnabled: settings.pressureEnabled,
+      guidesVisible: settings.paperGuideVisible,
     };
   }
 
@@ -89,6 +91,7 @@ export class InlineInkModal extends Modal {
       onZoomIn: () => this.surface?.zoomIn(),
       onZoomOut: () => this.surface?.zoomOut(),
       onZoomReset: () => this.surface?.resetView(),
+      onToggleGuides: () => void this.toggleGuides(),
       onToggleText: () => this.toggleCaptionPanel(),
       onRecognize: () => void this.plugin.runRecognition(this),
     });
@@ -102,6 +105,8 @@ export class InlineInkModal extends Modal {
         desynchronizedCanvas: settings.desynchronizedCanvas,
         highlighterAlpha: settings.highlighterAlpha,
         darkTheme: dark,
+        paperGuide: settings.paperGuideVisible ? normalizePaperGuide(settings.paperGuide) : null,
+        paperGuideSpacing: settings.paperGuideSpacing,
         debug: false,
       },
       {
@@ -171,6 +176,18 @@ export class InlineInkModal extends Modal {
     this.captionPanelEl.style.display = this.showCaption ? "" : "none";
     if (this.showCaption) this.captionInput?.focus();
     this.surface?.layout();
+  }
+
+  /** Toolbar toggle: persist the preference, then mirror it on this (non-leaf) surface. */
+  private async toggleGuides(): Promise<void> {
+    const { settings } = this.plugin;
+    await this.plugin.setPaperGuide({ visible: !settings.paperGuideVisible });
+    this.toolState.guidesVisible = settings.paperGuideVisible;
+    this.toolbar?.setState(this.toolState);
+    this.surface?.setPaperGuide(
+      settings.paperGuideVisible ? normalizePaperGuide(settings.paperGuide) : null,
+      settings.paperGuideSpacing,
+    );
   }
 
   private updateStatus(): void {

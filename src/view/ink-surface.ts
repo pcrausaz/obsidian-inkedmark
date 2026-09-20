@@ -30,6 +30,7 @@ import {
   MIN_SAMPLE_DISTANCE,
   PAPER_GROWTH_MARGIN,
 } from "../constants";
+import { type PaperGuide } from "../canvas/guides";
 import { Renderer, type StrokeStyle } from "../canvas/renderer";
 import type { ViewportState } from "../canvas/viewport";
 import {
@@ -70,6 +71,10 @@ export interface InkSurfaceOptions {
   desynchronizedCanvas: boolean;
   highlighterAlpha: number;
   darkTheme: boolean;
+  /** Paper guides under the ink (`null` = hidden). */
+  paperGuide: PaperGuide | null;
+  /** Distance between guide rows/columns, in world CSS px. */
+  paperGuideSpacing: number;
   /** Show the pointer-diagnostics HUD. */
   debug: boolean;
 }
@@ -195,6 +200,8 @@ export class InkSurface {
     this.renderer = new Renderer(dryCanvas, wetCanvas, options.desynchronizedCanvas);
     this.renderer.highlighterAlpha = options.highlighterAlpha;
     this.renderer.darkTheme = options.darkTheme;
+    this.renderer.guide = options.paperGuide;
+    this.renderer.guideSpacing = options.paperGuideSpacing;
 
     this.pointer = new PointerController(
       this.scrollEl,
@@ -270,7 +277,29 @@ export class InkSurface {
   setDarkTheme(dark: boolean): void {
     if (!this.renderer) return;
     this.renderer.darkTheme = dark;
+    this.resolveGuideColor();
     this.renderDry();
+  }
+
+  /** Show/hide paper guides and set their style + spacing (world px). */
+  setPaperGuide(guide: PaperGuide | null, spacing: number): void {
+    if (!this.renderer) return;
+    this.renderer.guide = guide;
+    this.renderer.guideSpacing = spacing;
+    this.renderDry();
+  }
+
+  /**
+   * Guide colour comes from a CSS custom property (`--inkedmark-guide-color`,
+   * themed light/dark in styles.css and overridable by user snippets), read
+   * whenever the surface lays out or the theme changes.
+   */
+  private resolveGuideColor(): void {
+    if (!this.renderer) return;
+    const color = getComputedStyle(this.surfaceEl)
+      .getPropertyValue("--inkedmark-guide-color")
+      .trim();
+    if (color) this.renderer.guideColor = color;
   }
 
   /** Reset zoom to 1 and scroll back to the top ("fit / reset"). */
@@ -365,6 +394,7 @@ export class InkSurface {
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
     this.renderer.resize(cssW, cssH, dpr);
     this.syncViewport();
+    this.resolveGuideColor();
     this.renderDry();
   }
 

@@ -8,6 +8,7 @@ import { addIcon } from "obsidian";
 
 export const ICON_INK_PEN = "inkedmark-pen";
 export const ICON_INK_NOTE = "inkedmark-note";
+export const ICON_GUIDES = "inkedmark-guides";
 
 // Lucide icons are authored in a 24x24 box; scale into Obsidian's 100x100.
 function lucide(pathMarkup: string): string {
@@ -29,7 +30,15 @@ const NOTE_PATH =
   '<path d="M10 13l-2 4"/>' +
   '<path d="M14 12l-3 6"/>';
 
+// Ruled notebook page (Lucide "notebook-text"): distinct from the text-layer
+// button's "file-text" so the two toolbar icons don't read as the same thing.
+const GUIDES_PATH =
+  '<path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/>' +
+  '<rect x="4" y="2" width="16" height="20" rx="2"/>' +
+  '<path d="M9.5 8h5"/><path d="M9.5 12h5"/><path d="M9.5 16h5"/>';
+
 export function registerIcons(): void {
   addIcon(ICON_INK_PEN, lucide(PEN_PATH));
   addIcon(ICON_INK_NOTE, lucide(NOTE_PATH));
+  addIcon(ICON_GUIDES, lucide(GUIDES_PATH));
 }

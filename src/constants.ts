@@ -87,3 +87,11 @@ export const TROCR_MODELS = {
 } as const;
 
 export type TrocrSize = keyof typeof TROCR_MODELS;
+
+/** Default distance between paper-guide lines/dots, in world CSS px (~9 mm on an iPad). */
+export const DEFAULT_PAPER_GUIDE_SPACING = 48;
+
+/** Paper-guide spacing bounds and slider step, in world CSS px. */
+export const MIN_PAPER_GUIDE_SPACING = 24;
+export const MAX_PAPER_GUIDE_SPACING = 96;
+export const PAPER_GUIDE_SPACING_STEP = 4;

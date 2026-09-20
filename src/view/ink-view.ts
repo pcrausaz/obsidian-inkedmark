@@ -35,6 +35,7 @@ import { MANUAL_PROVIDER_ID } from "../recognition/manual";
 import { providerLabel } from "../recognition/registry";
 import { readTextSection, writeTextSection } from "../recognition/text-layer";
 import { ICON_INK_PEN } from "../icons";
+import { normalizePaperGuide } from "../canvas/guides";
 import { InkSurface } from "./ink-surface";
 import { Toolbar, type ToolbarState } from "./toolbar";
 import type InkedMarkPlugin from "../main";
@@ -77,6 +78,7 @@ export class InkView extends TextFileView {
       color: plugin.settings.defaultColor,
       size: plugin.settings.defaultSize,
       pressureEnabled: plugin.settings.pressureEnabled,
+      guidesVisible: plugin.settings.paperGuideVisible,
     };
   }
 
@@ -179,6 +181,17 @@ export class InkView extends TextFileView {
     this.debug = enabled;
     this.surface?.setDebug(enabled);
     this.updateStatus();
+  }
+
+  /** Re-read the paper-guide settings (toolbar toggle, command, settings tab). */
+  applyPaperGuide(): void {
+    const { paperGuideVisible, paperGuide, paperGuideSpacing } = this.plugin.settings;
+    this.toolState.guidesVisible = paperGuideVisible;
+    this.toolbar?.setState(this.toolState);
+    this.surface?.setPaperGuide(
+      paperGuideVisible ? normalizePaperGuide(paperGuide) : null,
+      paperGuideSpacing,
+    );
   }
 
   /**
@@ -297,6 +310,8 @@ export class InkView extends TextFileView {
       onZoomIn: () => this.zoomIn(),
       onZoomOut: () => this.zoomOut(),
       onZoomReset: () => this.resetView(),
+      onToggleGuides: () =>
+        void this.plugin.setPaperGuide({ visible: !this.plugin.settings.paperGuideVisible }),
       onToggleText: () => this.toggleTextPanel(),
       onRecognize: () => void this.plugin.runRecognition(this),
     });
@@ -310,6 +325,10 @@ export class InkView extends TextFileView {
         desynchronizedCanvas: this.plugin.settings.desynchronizedCanvas,
         highlighterAlpha: this.plugin.settings.highlighterAlpha,
         darkTheme: dark,
+        paperGuide: this.plugin.settings.paperGuideVisible
+          ? normalizePaperGuide(this.plugin.settings.paperGuide)
+          : null,
+        paperGuideSpacing: this.plugin.settings.paperGuideSpacing,
         debug: this.debug,
       },
       {

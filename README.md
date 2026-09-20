@@ -47,9 +47,29 @@ and Obsidian's search and graph see all of it through a first-class text layer.
 | Select      | `V` | Drag a box to select; drag inside it to move; `Delete` removes |
 
 Plus: color swatches (add your own in settings), stroke sizes, a pressure
-toggle, undo/redo (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`), clear, and zoom
-out / fit / in. The right side of the toolbar shows version, build, stroke
-count, and zoom.
+toggle, undo/redo (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`), clear, zoom
+out / fit / in, and a paper-guides toggle (below). The right side of the
+toolbar shows version, build, stroke count, and zoom.
+
+### Paper guides
+
+Many people write neater on ruled paper than on a blank page. Turn on **paper
+guides** from the toolbar button, the _Toggle paper guides_ command, or
+settings, and pick **lines**, **dots** or a **grid** plus the spacing. The
+default spacing (48 paper pixels, about 9 mm on an iPad) is a little wider
+than wide-ruled paper, because handwriting on glass tends to run larger than
+on paper. Guides scroll and zoom with the ink and stay crisp at any zoom.
+
+Guides are a writing aid, not content: they are never stored in the note,
+never drawn in embeds, and never sent to handwriting recognition. Their color
+is tuned for the default light and dark themes; retune it for yours with a
+CSS snippet:
+
+```css
+body.theme-dark {
+  --inkedmark-guide-color: rgba(255, 255, 255, 0.2);
+}
+```
 
 ### Commands
 
@@ -60,6 +80,7 @@ count, and zoom.
 - **Toggle text layer panel** — open the transcription panel.
 - **Recognize handwriting in this note** — runs the selected recognition
   provider (see below).
+- **Toggle paper guides** — ruled lines / dots / grid under the ink.
 - **Zoom in / Zoom out / Fit / reset view**, **Toggle input debug overlay**.
 - **View changelog** — what changed in each release. After an update, the
   news is shown once automatically.
