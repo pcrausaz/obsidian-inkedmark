@@ -185,16 +185,14 @@ export class Renderer {
     const toDeviceX = (wx: number): number => wx * k + this.offsetX * this.dpr;
     const toDeviceY = (wy: number): number => (wy - this.viewport.scrollY) * k;
     // Guides stop PAPER_GUIDE_MARGIN short of the left, right and top edges.
-    // Rows sit on multiples of the spacing; dot/grid columns are a lattice
-    // centred between the side margins, and grid rows span exactly that
-    // lattice so the grid closes on its first and last vertical line.
+    // Rows sit on multiples of the spacing and always span the full inner
+    // width; dot/grid columns are a lattice centred between the side margins,
+    // so the outer verticals sit the same distance inside each row end.
     const inner = { from: PAPER_GUIDE_MARGIN, to: this.viewport.width - PAPER_GUIDE_MARGIN };
     const rows = guidePositions(spacing, Math.max(top, PAPER_GUIDE_MARGIN), bottom);
     const cols = guide === "lines" ? [] : guideLattice(spacing, inner.from, inner.to);
-    const span =
-      guide === "grid" && cols.length > 0 ? { from: cols[0], to: cols[cols.length - 1] } : inner;
-    const left = toDeviceX(span.from);
-    const right = toDeviceX(span.to);
+    const left = toDeviceX(inner.from);
+    const right = toDeviceX(inner.to);
 
     ctx.save();
     ctx.strokeStyle = this.guideColor;
