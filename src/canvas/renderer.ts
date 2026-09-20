@@ -16,7 +16,7 @@ import {
   DEFAULT_PAPER_GUIDE_SPACING,
   PAPER_GUIDE_MARGIN,
 } from "../constants";
-import { type PaperGuide, guidePositions, guideWeight, snapToPixel } from "./guides";
+import { type PaperGuide, guideLattice, guidePositions, guideWeight, snapToPixel } from "./guides";
 import { resolveInkColor } from "./ink-color";
 import { type FreehandOptions, outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
 import {
@@ -184,12 +184,17 @@ export class Renderer {
     const weight = guideWeight(this.dpr);
     const toDeviceX = (wx: number): number => wx * k + this.offsetX * this.dpr;
     const toDeviceY = (wy: number): number => (wy - this.viewport.scrollY) * k;
-    // Rows span, and columns fall within, the paper minus a side margin.
+    // Guides stop PAPER_GUIDE_MARGIN short of the left, right and top edges.
+    // Rows sit on multiples of the spacing; dot/grid columns are a lattice
+    // centred between the side margins, and grid rows span exactly that
+    // lattice so the grid closes on its first and last vertical line.
     const inner = { from: PAPER_GUIDE_MARGIN, to: this.viewport.width - PAPER_GUIDE_MARGIN };
-    const left = toDeviceX(inner.from);
-    const right = toDeviceX(inner.to);
-    const rows = guidePositions(spacing, top, bottom);
-    const cols = guidePositions(spacing, inner.from, inner.to);
+    const rows = guidePositions(spacing, Math.max(top, PAPER_GUIDE_MARGIN), bottom);
+    const cols = guide === "lines" ? [] : guideLattice(spacing, inner.from, inner.to);
+    const span =
+      guide === "grid" && cols.length > 0 ? { from: cols[0], to: cols[cols.length - 1] } : inner;
+    const left = toDeviceX(span.from);
+    const right = toDeviceX(span.to);
 
     ctx.save();
     ctx.strokeStyle = this.guideColor;
@@ -214,7 +219,7 @@ export class Renderer {
         ctx.lineTo(right, y);
       }
       if (guide === "grid") {
-        const y0 = 0;
+        const y0 = toDeviceY(PAPER_GUIDE_MARGIN);
         const y1 = this.dpr * this.cssHeight;
         for (const wx of cols) {
           const x = snapToPixel(toDeviceX(wx), weight);

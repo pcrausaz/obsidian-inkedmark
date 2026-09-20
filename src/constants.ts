@@ -97,9 +97,9 @@ export const MAX_PAPER_GUIDE_SPACING = 96;
 export const PAPER_GUIDE_SPACING_STEP = 4;
 
 /**
- * Blank strip on each side of the paper where guides stop short of the edge,
- * in world CSS px (~4 mm on an iPad). Purely visual — ink is still allowed
- * there — and deliberately not a setting: it is what makes ruling read as
- * notebook paper rather than graph paper.
+ * Blank strip along the paper's left, right and top edges where guides stop
+ * short, in world CSS px (~2 mm on an iPad). Purely visual — ink is still
+ * allowed there — and deliberately not a setting: it is what makes ruling
+ * read as notebook paper rather than graph paper.
  */
-export const PAPER_GUIDE_MARGIN = 20;
+export const PAPER_GUIDE_MARGIN = 12;

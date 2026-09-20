@@ -47,6 +47,21 @@ export function guidePositions(spacing: number, from: number, to: number): numbe
 }
 
 /**
+ * World-space column positions spaced `spacing` apart and centred within
+ * `[from, to]`, so the first and last column sit the same distance from each
+ * edge. Used for dot/grid columns (rows use {@link guidePositions}: the paper
+ * roll has no bottom edge to centre against).
+ */
+export function guideLattice(spacing: number, from: number, to: number): number[] {
+  const out: number[] = [];
+  const span = to - from;
+  if (!(spacing > 0) || span < 0) return out;
+  const start = from + (span % spacing) / 2;
+  for (let x = start; x <= to + 1e-9; x += spacing) out.push(x);
+  return out;
+}
+
+/**
  * Snap a device-space coordinate to the centre of a pixel so a `weight`-pixel
  * stroke covers whole pixels (odd weights straddle a pixel centre, even
  * weights sit on a pixel boundary).

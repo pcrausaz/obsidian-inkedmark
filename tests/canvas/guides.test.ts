@@ -6,6 +6,7 @@ import {
 } from "../../src/constants";
 import {
   clampGuideSpacing,
+  guideLattice,
   guidePositions,
   guideWeight,
   normalizePaperGuide,
@@ -70,6 +71,25 @@ describe("guidePositions", () => {
     expect(guidePositions(0, 0, 100)).toEqual([]);
     expect(guidePositions(-5, 0, 100)).toEqual([]);
     expect(guidePositions(Number.NaN, 0, 100)).toEqual([]);
+  });
+});
+
+describe("guideLattice", () => {
+  it("centres the columns so both edge gaps are equal", () => {
+    // 1000 px between the margins, 48 px spacing: 20 cells (960) + 40 px slack.
+    const cols = guideLattice(48, 12, 1012);
+    expect(cols[0] - 12).toBeCloseTo(1012 - cols[cols.length - 1]);
+    expect(cols).toHaveLength(21);
+    expect(cols[1] - cols[0]).toBe(48);
+  });
+
+  it("starts on the edge when the span is an exact multiple", () => {
+    expect(guideLattice(50, 0, 100)).toEqual([0, 50, 100]);
+  });
+
+  it("is empty for a non-positive spacing or inverted range", () => {
+    expect(guideLattice(0, 0, 100)).toEqual([]);
+    expect(guideLattice(48, 100, 0)).toEqual([]);
   });
 });
 
