@@ -714,7 +714,6 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         slider
           .setLimits(MIN_PAPER_GUIDE_SPACING, MAX_PAPER_GUIDE_SPACING, PAPER_GUIDE_SPACING_STEP)
           .setValue(this.plugin.settings.paperGuideSpacing)
-          .setDynamicTooltip()
           .onChange(async (value) => {
             await this.plugin.setPaperGuide({ spacing: clampGuideSpacing(value) });
           }),
