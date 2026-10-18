@@ -7,9 +7,11 @@ extracted from the matching section of this file by `release.yml`.
 
 ## [1.4.1] - 2026-10-18
 
-Maintenance release — no functional changes. The built `main.js` is
-byte-identical to 1.4.0; every fix below is in build-time or dev-only
-dependencies.
+Maintenance release — no functional changes. Every fix below is in
+build-time or dev-only dependencies: built from the 1.4.0 changelog, the
+`main.js` is byte-identical to 1.4.0. The only difference in the shipped
+bundle is this changelog entry (bundled for the in-app _What's new_
+screen).
 
 ### Security
 
