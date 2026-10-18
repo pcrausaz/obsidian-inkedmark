@@ -5,6 +5,28 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.4.1] - 2026-10-18
+
+Maintenance release — no functional changes. The built `main.js` is
+byte-identical to 1.4.0; every fix below is in build-time or dev-only
+dependencies.
+
+### Security
+
+- `source-map-js` 1.2.2 (GHSA-68fv-2mgg-jv7q, #25) and `brace-expansion`
+  1.1.21 / 2.1.7 / 5.0.12 (GHSA-q2hr-2g5m-vwhr, #24) — dev toolchain.
+- Raised the `sharp` override to 0.35.5 (GHSA-wq5f-xc86-pv6w, librsvg),
+  build-time only via `@huggingface/transformers`.
+- Added a `moment` override at 2.31.0 (GHSA-4p3w-j4w9-5jqw). It only
+  reaches the `obsidian` type definitions; at runtime the plugin uses
+  Obsidian's own copy, which this release does not change.
+- `fast-uri` 3.1.8 (GHSA-hrr3-gc8f-f4qj) — dev toolchain, via ESLint.
+- Deferred: `sprintf-js` GHSA-hp3w-g68c-fv3c has no patched release. It
+  enters only through `onnxruntime-node` (build-time, not bundled). The
+  route that drops it — `@huggingface/transformers` 4.3 — changes the
+  bundled on-device recognition engine and is held back until it can be
+  tested.
+
 ## [1.4.0] - 2026-09-20
 
 ### Added
