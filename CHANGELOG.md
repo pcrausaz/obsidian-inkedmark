@@ -5,6 +5,22 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Changed
+
+- The experimental on-device recognizer (desktop only) now runs on
+  transformers.js 4.3.1 and ONNX Runtime Web 1.31 (was 4.2.0 / 1.26).
+  Recognition should behave the same; the first on-device recognition
+  after updating downloads the new ONNX runtime (about 27 MB) from jsDelivr
+  once. Your ink still never leaves the device.
+
+### Security
+
+- Resolves the `sprintf-js` advisory deferred in 1.4.1
+  (GHSA-hp3w-g68c-fv3c): `onnxruntime-node` 1.30 no longer pulls it in.
+  Build-time only. `npm audit` is clean.
+
 ## [1.4.1] - 2026-10-18
 
 Maintenance release — no functional changes. Every fix below is in
