@@ -5,7 +5,7 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.5.0] - 2026-11-06
 
 ### Added
 
@@ -13,9 +13,10 @@ extracted from the matching section of this file by `release.yml`.
   without reaching for the toolbar; let go and you're back to your tool. A
   second side button highlights. Choose what each does (Eraser, Highlighter or
   Nothing) in Settings → _Pen button_ / _Second pen button_. A pen's eraser end
-  now erases too (it used to draw). Works with Windows, Wacom and Android
+  now erases too (it used to draw). Made for Windows, Wacom and Android
   styluses. On Android, press the first button before the pen touches the
-  screen.
+  screen; Android couldn't be tested on real hardware yet, so please report
+  how it behaves with yours.
   **Not on iPad:** iPadOS doesn't let plugins see Apple Pencil buttons
   (double-tap, squeeze), so the two settings don't appear there at all — that
   is expected, not a missing feature.
