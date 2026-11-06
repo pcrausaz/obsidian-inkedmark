@@ -172,9 +172,9 @@ inheritance actually holds on device:
       `![[….ink]]` embed) and go back within a few seconds — the transcription
       still arrives in that note. Same with a custom endpoint as the vendor.
 - [ ] iPad: tap into the ink note's text-layer panel — it settles directly
-      above the keyboard (no keyboard-height gap). Known issue, not fixed yet:
-      with the input debug overlay on, tapping into the panel saves layout
-      measurements to `.obsidian/plugins/inkedmark/keyboard-debug.json`.
+      above the keyboard (no keyboard-height gap). For diagnosis: with the
+      input debug overlay on, tapping into the panel saves layout measurements
+      to `.obsidian/plugins/inkedmark/keyboard-debug.json`.
 - [ ] Desktop: on-device (experimental) small model transcribes a simple page;
       the progress notice shows download % then line N/M.
 - [ ] Mobile: on-device provider is absent from settings; if synced-on, a scan

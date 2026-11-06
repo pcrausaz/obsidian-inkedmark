@@ -44,6 +44,8 @@ extracted from the matching section of this file by `release.yml`.
 - **Recognize automatically works with a self-hosted endpoint in ink notes.**
   It only ran after consenting to a cloud vendor; it now honours the consent
   you gave your own endpoint.
+- iPad: the ink note's text-layer panel sits directly above the keyboard
+  instead of a keyboard height higher.
 - Inline blocks inserted with _Insert inline handwriting_ still save when you
   type elsewhere in the note while the editor is open, and the block always
   starts on its own line.
