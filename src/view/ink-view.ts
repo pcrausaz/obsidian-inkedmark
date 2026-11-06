@@ -41,7 +41,7 @@ import {
 import { ICON_INK_PEN } from "../icons";
 import { normalizePaperGuide } from "../canvas/guides";
 import { InkSurface } from "./ink-surface";
-import { keepFieldAboveKeyboard } from "./keyboard-scroll";
+import { probeKeyboardLayout } from "./keyboard-probe";
 import { Toolbar, type ToolbarState } from "./toolbar";
 import type InkedMarkPlugin from "../main";
 
@@ -276,6 +276,19 @@ export class InkView extends TextFileView {
   }
 
   /** Write a late transcription straight into its (no longer displayed) note. */
+  /** Debug overlay: keep the iPad keyboard layout probe where iCloud syncs it. */
+  private async saveKeyboardProbe(json: string): Promise<void> {
+    const dir = this.plugin.manifest.dir;
+    if (!dir) return;
+    const path = `${dir}/keyboard-debug.json`;
+    try {
+      await this.app.vault.adapter.write(path, json);
+      new Notice(`InkedMark: keyboard layout saved to ${path}`);
+    } catch (e) {
+      new Notice(`InkedMark: couldn't save keyboard layout (${String(e)})`);
+    }
+  }
+
   private async saveTranscriptionTo(file: TFile, text: string, hash: string): Promise<void> {
     let written = false;
     try {
@@ -415,9 +428,10 @@ export class InkView extends TextFileView {
     this.textPanelEl.style.display = this.showTextPanel ? "" : "none";
     if (Platform.isMobile) {
       this.register(
-        keepFieldAboveKeyboard(
+        probeKeyboardLayout(
           this.textArea,
-          (summary) => this.debug && new Notice(`InkedMark keyboard: ${summary}`, 15000),
+          () => this.debug,
+          (json) => void this.saveKeyboardProbe(json),
         ),
       );
     }
