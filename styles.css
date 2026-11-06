@@ -365,7 +365,8 @@ body.theme-dark {
    the keyboard has settled, also shrinks the app by it. Scrolling views need
    that padding; this flex layout doesn't, and with both the text panel ends
    up a keyboard height above the keyboard. Keep it during the show animation
-   (the app is still full height then), drop it afterwards. */
+   (the app is still full height then), drop it afterwards. `!important`:
+   the iPad app's own rule outranked a plain override on device. */
 body.is-mobile:not(.keyboard-animating) .workspace-leaf-content .view-content.inkedmark-view {
-  padding-bottom: max(var(--safe-area-inset-bottom), var(--size-4-8));
+  padding-bottom: max(var(--safe-area-inset-bottom), var(--size-4-8)) !important;
 }

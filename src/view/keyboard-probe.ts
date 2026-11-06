@@ -25,6 +25,46 @@ interface ChainEntry {
   scrollTop?: number;
 }
 
+/**
+ * Every stylesheet rule (and the inline style) that sets `el`'s bottom
+ * padding, so the source of the keyboard padding can be named.
+ */
+function paddingSources(el: HTMLElement): string[] {
+  const out: string[] = [];
+  const inline = el.style.getPropertyValue("padding-bottom");
+  if (inline) out.push(`inline: ${inline} ${el.style.getPropertyPriority("padding-bottom")}`);
+  const visit = (rules: CSSRuleList, where: string): void => {
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSStyleRule) {
+        const v = rule.style.getPropertyValue("padding-bottom");
+        if (!v) continue;
+        let hit = false;
+        try {
+          hit = el.matches(rule.selectorText);
+        } catch {
+          // Selector the engine can't match against; skip.
+        }
+        if (hit) {
+          const prio = rule.style.getPropertyPriority("padding-bottom");
+          out.push(`${where}: ${rule.selectorText} { ${v} ${prio}}`);
+        }
+      } else if ("cssRules" in rule) {
+        visit((rule as CSSGroupingRule).cssRules, where);
+      }
+    }
+  };
+  for (const sheet of Array.from(el.doc.styleSheets)) {
+    const owner = sheet.ownerNode as Element | null;
+    const where = sheet.href ?? owner?.id ?? owner?.tagName.toLowerCase() ?? "sheet";
+    try {
+      visit(sheet.cssRules, where);
+    } catch {
+      out.push(`${where}: unreadable`);
+    }
+  }
+  return out;
+}
+
 interface Sample {
   at: string;
   ms: number;
@@ -36,6 +76,8 @@ interface Sample {
   keyboardHeight: string;
   bodyClasses: string;
   chain: ChainEntry[];
+  /** Rules setting the view's bottom padding (view-content only). */
+  paddingSources?: string[];
 }
 
 /** Styles worth reporting when they are not the default. */
@@ -78,6 +120,7 @@ function snapshot(field: HTMLElement, at: string, t0: number): Sample {
     chain.push(entry);
   }
   const vv = win.visualViewport;
+  const view = field.closest<HTMLElement>(".view-content");
   return {
     at,
     ms: Math.round(performance.now() - t0),
@@ -94,6 +137,7 @@ function snapshot(field: HTMLElement, at: string, t0: number): Sample {
       .filter((c) => /keyboard|mobile|tablet|phone|ios/.test(c))
       .join(" "),
     chain,
+    paddingSources: view ? paddingSources(view) : undefined,
   };
 }
 
