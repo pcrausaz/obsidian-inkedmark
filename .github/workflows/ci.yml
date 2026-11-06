@@ -25,6 +25,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The Obsidian community review installs with npm 11, which applies
+      # scoped overrides to whole subtrees and rejects a lockfile npm 10
+      # accepts (1.5.0 failed review this way).
+      - name: Lockfile in sync for npm 11
+        run: npx -y npm@11.21.2 ci --dry-run --ignore-scripts
+
       - name: Lint
         run: npm run lint
 
