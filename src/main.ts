@@ -309,8 +309,7 @@ export default class InkedMarkPlugin extends Plugin {
     // endpoint are different destinations, so consenting to one must not
     // silently authorize the other after a vendor switch.
     const custom = VENDORS[this.settings.llmVendor].userEndpoint;
-    const consented = custom ? this.settings.customConsentGiven : this.settings.cloudConsentGiven;
-    if (provider.requiresNetwork && !consented) {
+    if (provider.requiresNetwork && !this.hasRecognitionConsent()) {
       if (auto) return;
       const target = describeLlmTarget(this.settings.llmVendor, this.settings.llmBaseUrl);
       const confirmed = await ConfirmModal.confirm(this.app, {
@@ -332,6 +331,16 @@ export default class InkedMarkPlugin extends Plugin {
       await this.saveSettings();
     }
     await target.recognize(provider, auto);
+  }
+
+  /**
+   * Consent for the configured cloud destination. Named vendors and the
+   * user-configured endpoint are separate scopes (see `runRecognition`).
+   */
+  hasRecognitionConsent(): boolean {
+    return VENDORS[this.settings.llmVendor].userEndpoint
+      ? this.settings.customConsentGiven
+      : this.settings.cloudConsentGiven;
   }
 
   /** Begin the OpenRouter one-click connect: open the approval page in the browser. */

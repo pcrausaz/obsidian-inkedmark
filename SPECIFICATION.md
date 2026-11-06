@@ -415,6 +415,11 @@ export interface RecognitionProvider {
   - *Ink view:* if the view switched notes or closed before the result
     arrived, the text is merged into the original file via `vault.process`
     (`applyTranscriptionToInkFile`) — never into the newly shown note.
+  - *Auto-recognize in the ink view* is an idle timer (30 s); leaving the
+    note (`onUnloadFile`/`onClose`) flushes a pending timer instead of dropping
+    it — `recognize` captures strokes and file synchronously, so it must run
+    before the view swaps documents. Consent is checked per destination
+    (`hasRecognitionConsent`: cloud vendors vs. the custom endpoint).
 
 ### 7.1 BYOK vendor descriptors
 

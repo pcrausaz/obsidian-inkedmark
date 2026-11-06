@@ -55,8 +55,8 @@ toolbar shows version, build, stroke count, and zoom.
 or highlight without touching the toolbar; release it and you're back to the
 selected tool. A second side button highlights by default. Both are set in
 Settings → **Pen button** / **Second pen button**. A pen's eraser end always
-erases. Apple Pencil's buttons aren't available to plugins, so none of this
-applies on iPad. On Android only the second button is reported while the pen
+erases. iPadOS doesn't expose Apple Pencil's double-tap or squeeze to plugins,
+so on iPad these settings don't appear. On Android only the second button is reported while the pen
 touches the screen, so press the first button _before_ the pen touches down.
 
 ### Paper guides
@@ -125,7 +125,7 @@ Three providers (Settings → Handwriting recognition):
 
 Run it from the toolbar's **scan button**, the command palette, or turn on
 **Recognize automatically** in settings to have it run in the background
-~30 seconds after you stop writing. Recognition is skipped when the ink hasn't
+~30 seconds after you stop writing, or as soon as you leave the note. Recognition is skipped when the ink hasn't
 changed since the last run, and clearing the page clears the transcription
 section too (your own prose in the text layer is never touched).
 

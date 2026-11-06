@@ -41,6 +41,7 @@ import {
 import { ICON_INK_PEN } from "../icons";
 import { normalizePaperGuide } from "../canvas/guides";
 import { InkSurface } from "./ink-surface";
+import { keepFieldAboveKeyboard } from "./keyboard-scroll";
 import { Toolbar, type ToolbarState } from "./toolbar";
 import type InkedMarkPlugin from "../main";
 
@@ -153,8 +154,14 @@ export class InkView extends TextFileView {
     void this.plugin.maybeShowScribbleNotice();
   }
 
+  /** Leaving a note (switch or close): don't drop a pending automatic pass. */
+  override async onUnloadFile(file: TFile): Promise<void> {
+    this.flushAutoRecognize();
+    await super.onUnloadFile(file);
+  }
+
   override async onClose(): Promise<void> {
-    window.clearTimeout(this.autoRecognizeTimer);
+    this.flushAutoRecognize();
     this.surface?.destroy();
     this.surface = null;
     this.toolbar?.destroy();
@@ -297,12 +304,27 @@ export class InkView extends TextFileView {
    */
   private scheduleAutoRecognize(): void {
     window.clearTimeout(this.autoRecognizeTimer);
+    this.autoRecognizeTimer = 0;
     if (!this.plugin.settings.autoRecognize) return;
-    if (!this.plugin.settings.cloudConsentGiven) return;
+    if (!this.plugin.hasRecognitionConsent()) return;
     if (!this.plugin.activeProvider().requiresNetwork) return;
     this.autoRecognizeTimer = window.setTimeout(() => {
+      this.autoRecognizeTimer = 0;
       void this.plugin.runRecognition(this, true);
     }, AUTO_RECOGNIZE_IDLE_MS);
+  }
+
+  /**
+   * Run a pending automatic pass now instead of dropping it — the note is
+   * being left before the idle delay elapsed. Must run while the view still
+   * holds that note: `recognize` captures its strokes and file synchronously,
+   * and a result landing after the switch goes to that file.
+   */
+  private flushAutoRecognize(): void {
+    if (!this.autoRecognizeTimer) return;
+    window.clearTimeout(this.autoRecognizeTimer);
+    this.autoRecognizeTimer = 0;
+    void this.plugin.runRecognition(this, true);
   }
 
   /** Show/hide the text-layer panel (searchable markdown body). */
@@ -391,6 +413,14 @@ export class InkView extends TextFileView {
     this.textArea.placeholder = "Transcription, key points, [[links]], #tags…";
     this.syncPanelFromBody();
     this.textPanelEl.style.display = this.showTextPanel ? "" : "none";
+    if (Platform.isMobile) {
+      this.register(
+        keepFieldAboveKeyboard(
+          this.textArea,
+          (summary) => this.debug && new Notice(`InkedMark keyboard: ${summary}`, 15000),
+        ),
+      );
+    }
     this.registerDomEvent(this.textArea, "input", () => {
       if (!this.textArea) return;
       // The panel edits prose only; frontmatter is preserved untouched.

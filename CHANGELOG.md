@@ -14,9 +14,11 @@ extracted from the matching section of this file by `release.yml`.
   second side button highlights. Choose what each does (Eraser, Highlighter or
   Nothing) in Settings → _Pen button_ / _Second pen button_. A pen's eraser end
   now erases too (it used to draw). Works with Windows, Wacom and Android
-  styluses; Apple Pencil's buttons aren't available to plugins, so the
-  settings are hidden on iPad. On Android, press the first button before the
-  pen touches the screen.
+  styluses. On Android, press the first button before the pen touches the
+  screen.
+  **Not on iPad:** iPadOS doesn't let plugins see Apple Pencil buttons
+  (double-tap, squeeze), so the two settings don't appear there at all — that
+  is expected, not a missing feature.
 
 ### Changed
 
@@ -35,6 +37,15 @@ extracted from the matching section of this file by `release.yml`.
   The same holds for ink notes: a transcription that lands after you switched
   the tab to another note now goes into the note it came from — previously it
   could be written into the note you had just opened.
+- **Recognize automatically now covers ink notes you leave quickly.** It
+  used to wait for 30 seconds of idle ink and was silently skipped if you
+  went back or closed the note before then (common for a short note opened
+  from an embed). Leaving the note now starts it right away.
+- **Recognize automatically works with a self-hosted endpoint in ink notes.**
+  It only ran after consenting to a cloud vendor; it now honours the consent
+  you gave your own endpoint.
+- iPad: the ink note's text-layer panel no longer jumps far above the
+  keyboard when you tap into it.
 - Inline blocks inserted with _Insert inline handwriting_ still save when you
   type elsewhere in the note while the editor is open, and the block always
   starts on its own line.

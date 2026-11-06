@@ -168,6 +168,12 @@ inheritance actually holds on device:
       in the same tab before it finishes: the transcription lands in the first
       note ("saved to …"), the second note is untouched. Same after closing the
       tab.
+- [ ] **Recognize automatically** on: draw in an ink note (e.g. opened from a
+      `![[….ink]]` embed) and go back within a few seconds — the transcription
+      still arrives in that note. Same with a custom endpoint as the vendor.
+- [ ] iPad: tap into the ink note's text-layer panel — it settles directly
+      above the keyboard (no keyboard-height gap). If not: turn on the input
+      debug overlay, repeat, and screenshot the "InkedMark keyboard: …" notice.
 - [ ] Desktop: on-device (experimental) small model transcribes a simple page;
       the progress notice shows download % then line N/M.
 - [ ] Mobile: on-device provider is absent from settings; if synced-on, a scan
