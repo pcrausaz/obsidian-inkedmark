@@ -317,6 +317,20 @@ src/
   is seen, single-finger touches pan and finger input never draws while a pen is
   down; ≥2 touches = pinch-zoom. A pen going down mid-gesture cancels any
   in-progress finger pan/pinch/stroke.
+- **Stylus buttons** (`input/pen-buttons.ts`, pure; issue #31): each gesture's
+  tool is fixed at pointer-down — the toolbar tool, or a temporary one when a
+  pen button is held (barrel → setting, default eraser; second barrel →
+  setting, default highlighter; eraser end → always eraser). Decoding is
+  platform-specific: W3C/Blink desktop reports barrel = `buttons & 2`, second
+  = `& 4`, eraser end = `& 32` (Blink also clears the contact bit). Chromium on
+  Android maps `BUTTON_STYLUS_PRIMARY` to the **left** bit — identical to tip
+  contact — so the primary barrel is only detectable while hovering
+  (`hoverBarrelHeld`); `BUTTON_STYLUS_SECONDARY` maps to the right bit. Verified
+  in Chromium source (`event_flags_android.cc`, `pointer_event_factory.cc`), not
+  yet on Android hardware; the debug HUD shows `buttons` (`b=`, `hv<n>`) for
+  field reports. iPadOS exposes no Pencil buttons to web content, so the
+  settings are hidden there. The surface swallows `contextmenu` (barrel
+  right-clicks).
 
 ### 5.3 Undo/redo (delta-based)
 Command pattern (`model/commands.ts` + `history.ts`). Each user action pushes a
@@ -389,6 +403,18 @@ export interface RecognitionProvider {
 - Recognition runs **in the background**, is incremental per region, and writes
   into the text layer via `recognition/text-layer.ts`. The user can always edit
   the result.
+- **Results outlive their editor (issue #29).** A transcription belongs to the
+  note it was requested for, not to whatever the UI shows when it lands:
+  - *Inline editor:* closing saves the ink immediately (never held for a slow
+    provider), then a second save writes the caption once in-flight requests
+    settle. The session's saver (`inlineBlockSaver`) remembers what it last
+    wrote and chains writes; the block is located by exact text, then by its
+    stroke payload (`locateInlineBlock`), so a caption that changed meanwhile
+    or typing above the block doesn't orphan the save. A save that leaves the
+    caption untouched sends `caption: null` and keeps what the note holds.
+  - *Ink view:* if the view switched notes or closed before the result
+    arrived, the text is merged into the original file via `vault.process`
+    (`applyTranscriptionToInkFile`) — never into the newly shown note.
 
 ### 7.1 BYOK vendor descriptors
 
@@ -424,6 +450,8 @@ export interface InkedMarkSettings {
   defaultColor: string;
   defaultSize: number;             // index/value into SIZES
   highlighterAlpha: number;        // 0..1, default ~0.4
+  penButtonAction: "eraser" | "highlighter" | "none";   // default eraser (§5.2)
+  penButton2Action: "eraser" | "highlighter" | "none";  // default highlighter
   paperWidth: number;              // logical px width of the roll, default 1024
   paperGuideVisible: boolean;      // paper guides on/off (also toolbar + command)
   paperGuide: "lines" | "dots" | "grid";

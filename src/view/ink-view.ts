@@ -13,7 +13,7 @@
  * is shared with the inline-block editor.
  */
 
-import { Notice, TextFileView, type WorkspaceLeaf } from "obsidian";
+import { Notice, Platform, TextFileView, type TFile, type WorkspaceLeaf } from "obsidian";
 import {
   AUTO_RECOGNIZE_IDLE_MS,
   BLOCK_LABEL,
@@ -33,7 +33,11 @@ import { buildInkFile, parseInkFile, splitFrontmatter } from "../model/serialize
 import type { RecognitionProvider } from "../recognition/provider";
 import { MANUAL_PROVIDER_ID } from "../recognition/manual";
 import { providerLabel } from "../recognition/registry";
-import { readTextSection, writeTextSection } from "../recognition/text-layer";
+import {
+  applyTranscriptionToInkFile,
+  readTextSection,
+  writeTextSection,
+} from "../recognition/text-layer";
 import { ICON_INK_PEN } from "../icons";
 import { normalizePaperGuide } from "../canvas/guides";
 import { InkSurface } from "./ink-surface";
@@ -200,6 +204,9 @@ export class InkView extends TextFileView {
    * changed since the last run (content hash), so repeated/automatic triggers
    * don't burn API calls or churn good text. An empty page clears the managed
    * section (the user's own prose is untouched). `auto` mutes the chatty notices.
+   *
+   * A result that lands after this view switched to another note (or closed)
+   * goes into the note it was made from, never into whatever is open now.
    */
   async recognize(provider: RecognitionProvider, auto = false): Promise<void> {
     if (this.protectedRaw !== null) {
@@ -233,11 +240,16 @@ export class InkView extends TextFileView {
       provider.id === MANUAL_PROVIDER_ID
         ? null
         : new Notice("InkedMark: recognizing handwriting…", 0);
+    const file = this.file;
     try {
       const result = await provider.recognize({
         strokes,
         onProgress: (message) => progress?.setMessage(`InkedMark: ${message}`),
       });
+      if (this.file !== file || !this.built) {
+        if (file && result.text.trim()) await this.saveTranscriptionTo(file, result.text, hash);
+        return;
+      }
       if (result.text.trim()) {
         this.bodyText = writeTextSection(this.bodyText, result.text);
         this.syncPanelFromBody();
@@ -254,6 +266,27 @@ export class InkView extends TextFileView {
     } finally {
       progress?.hide();
     }
+  }
+
+  /** Write a late transcription straight into its (no longer displayed) note. */
+  private async saveTranscriptionTo(file: TFile, text: string, hash: string): Promise<void> {
+    let written = false;
+    try {
+      await this.app.vault.process(file, (data) => {
+        const next = applyTranscriptionToInkFile(data, text, hash, this.plugin.settings.paperWidth);
+        if (next === null) return data;
+        written = true;
+        return next;
+      });
+    } catch {
+      // The note was deleted or renamed away meanwhile; reported below.
+    }
+    new Notice(
+      written
+        ? `InkedMark: transcription saved to “${file.basename}”.`
+        : `InkedMark: couldn't save the transcription to “${file.basename}”.`,
+      written ? 4000 : 8000,
+    );
   }
 
   /**
@@ -330,6 +363,8 @@ export class InkView extends TextFileView {
           : null,
         paperGuideSpacing: this.plugin.settings.paperGuideSpacing,
         debug: this.debug,
+        androidStylus: Platform.isAndroidApp,
+        penButtonTool: (button) => this.plugin.penButtonTool(button),
       },
       {
         onChange: () => {

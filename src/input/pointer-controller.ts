@@ -15,6 +15,7 @@
 
 import type { Vec2 } from "../canvas/viewport";
 import { PalmRejection, kindOf } from "./palm-rejection";
+import { type PenButton, hoverBarrelHeld, penButtonAtDown } from "./pen-buttons";
 
 export interface PointerSample {
   x: number;
@@ -24,13 +25,15 @@ export interface PointerSample {
   tiltY: number;
 }
 
-export type PointerDebugType = "down" | "move" | "up" | "cancel";
+export type PointerDebugType = "down" | "move" | "up" | "cancel" | "hover";
 
 export interface PointerDebugRecord {
   type: PointerDebugType;
   pointerType: string;
   pointerId: number;
   pressure: number;
+  /** `PointerEvent.buttons` (stylus barrel/eraser diagnostics). */
+  buttons: number;
   /** Number of coalesced samples on a move (0 otherwise). */
   coalesced: number;
   /** Event timestamp (ms, monotonic) for gap/starvation measurement. */
@@ -38,7 +41,8 @@ export interface PointerDebugRecord {
 }
 
 export interface PointerControllerCallbacks {
-  onStart(sample: PointerSample): void;
+  /** `button`: the pen button held as the pen touched down (null for a plain tip, finger or mouse). */
+  onStart(sample: PointerSample, button: PenButton | null): void;
   /** `coalesced` carries every retained move sample; `predicted` is discarded on commit. */
   onMove(coalesced: PointerSample[], predicted: PointerSample[]): void;
   onEnd(sample: PointerSample): void;
@@ -68,11 +72,19 @@ export class PointerController {
   private pinchDist = 0;
   private pinchMid: TouchPoint = { x: 0, y: 0 };
   private readonly palm = new PalmRejection();
+  /** Android: primary barrel button seen held while the pen hovered (see pen-buttons.ts). */
+  private hoverBarrel = false;
+  private lastHoverButtons = -1;
 
+  /**
+   * @param android Chromium-on-Android stylus button mapping (the primary
+   *                barrel button is only detectable while hovering)
+   */
   constructor(
     private readonly el: HTMLElement,
     private readonly toWorld: (clientX: number, clientY: number) => Vec2,
     private readonly callbacks: PointerControllerCallbacks,
+    private readonly android = false,
   ) {}
 
   attach(): void {
@@ -80,6 +92,8 @@ export class PointerController {
     this.el.addEventListener("pointermove", this.onPointerMove);
     this.el.addEventListener("pointerup", this.onPointerUp);
     this.el.addEventListener("pointercancel", this.onPointerCancel);
+    this.el.addEventListener("pointerleave", this.onPointerLeave);
+    this.el.addEventListener("contextmenu", this.onContextMenu);
   }
 
   detach(): void {
@@ -87,6 +101,8 @@ export class PointerController {
     this.el.removeEventListener("pointermove", this.onPointerMove);
     this.el.removeEventListener("pointerup", this.onPointerUp);
     this.el.removeEventListener("pointercancel", this.onPointerCancel);
+    this.el.removeEventListener("pointerleave", this.onPointerLeave);
+    this.el.removeEventListener("contextmenu", this.onContextMenu);
   }
 
   private toSample(event: PointerEvent): PointerSample {
@@ -100,6 +116,7 @@ export class PointerController {
       pointerType: event.pointerType,
       pointerId: event.pointerId,
       pressure: event.pressure,
+      buttons: event.buttons,
       coalesced,
       timeStamp: event.timeStamp,
     });
@@ -122,7 +139,11 @@ export class PointerController {
       this.el.setPointerCapture(event.pointerId);
       event.preventDefault();
       this.emitDebug("down", event, 0);
-      this.callbacks.onStart(this.toSample(event));
+      const button =
+        event.pointerType === "pen"
+          ? penButtonAtDown(event.buttons, this.android, this.hoverBarrel)
+          : null;
+      this.callbacks.onStart(this.toSample(event), button);
       return;
     }
 
@@ -146,6 +167,11 @@ export class PointerController {
 
       this.emitDebug("move", event, coalesced.length);
       this.callbacks.onMove(coalesced, predicted);
+      return;
+    }
+
+    if (event.pointerType === "pen" && this.activePointerId === null) {
+      this.onHover(event);
       return;
     }
 
@@ -174,6 +200,31 @@ export class PointerController {
     }
     this.pinchDist = dist;
     this.pinchMid = mid;
+  };
+
+  /** A pen moving without contact: track barrel state (Android) and feed the HUD. */
+  private onHover(event: PointerEvent): void {
+    this.hoverBarrel = this.android && hoverBarrelHeld(event.buttons);
+    if (event.buttons !== this.lastHoverButtons) {
+      this.lastHoverButtons = event.buttons;
+      this.emitDebug("hover", event, 0);
+    }
+  }
+
+  private readonly onPointerLeave = (event: PointerEvent): void => {
+    // The pen left hover range; its button state is unknown until it returns.
+    if (event.pointerType === "pen") {
+      this.hoverBarrel = false;
+      this.lastHoverButtons = -1;
+    }
+  };
+
+  /**
+   * Pen barrel buttons arrive as right-clicks (desktop) or a context-menu tap
+   * (Android); the drawing surface has no menu, so never let one open.
+   */
+  private readonly onContextMenu = (event: Event): void => {
+    event.preventDefault();
   };
 
   private initPinch(): void {

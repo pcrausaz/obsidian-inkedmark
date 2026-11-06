@@ -353,3 +353,10 @@ body.theme-dark {
   max-width: 100%;
   height: auto;
 }
+
+/* Mobile inline editor: caption moved under the toolbar, clear of the
+   on-screen keyboard (#28). */
+.inkedmark-textpanel.inkedmark-caption-top {
+  border-top: none;
+  border-bottom: 1px solid var(--background-modifier-border);
+}

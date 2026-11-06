@@ -26,6 +26,7 @@ import {
   clampGuideSpacing,
   normalizePaperGuide,
 } from "./canvas/guides";
+import { PEN_BUTTON_ACTION_LABELS, type PenButtonAction } from "./input/pen-buttons";
 import { MANUAL_PROVIDER_ID } from "./recognition/manual";
 import {
   DEFAULT_MODELS,
@@ -48,6 +49,10 @@ export interface InkedMarkSettings {
   defaultColor: string;
   defaultSize: number;
   highlighterAlpha: number;
+  /** Tool while the stylus barrel button is held (issue #31). */
+  penButtonAction: PenButtonAction;
+  /** Tool while a second stylus button is held. */
+  penButton2Action: PenButtonAction;
   paperWidth: number;
   /** Paper guides (ruled lines / dots / grid) under the ink while writing. */
   paperGuideVisible: boolean;
@@ -94,6 +99,8 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   defaultColor: PALETTE[0],
   defaultSize: SIZES[1],
   highlighterAlpha: DEFAULT_HIGHLIGHTER_ALPHA,
+  penButtonAction: "eraser",
+  penButton2Action: "highlighter",
   paperWidth: DEFAULT_PAPER_WIDTH,
   paperGuideVisible: false,
   paperGuide: "lines",
@@ -115,6 +122,11 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   experimentalTrocr: false,
   trocrModel: "small",
 };
+
+const PEN_BUTTON_DESC =
+  "Tool used while you hold the stylus side button and write. The pen's eraser end always erases. " +
+  "Apple Pencil buttons are not available to plugins.";
+const PEN_BUTTON2_DESC = "Same, for styluses with a second side button.";
 
 const TOOL_LABELS: Record<ToolId, string> = {
   pen: "Pen",
@@ -361,6 +373,20 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         desc: "Transparency of highlighter strokes.",
         aliases: ["transparency", "alpha"],
         control: { type: "slider", key: "highlighterAlpha", min: 10, max: 100, step: 5 },
+      },
+      {
+        name: "Pen button",
+        desc: PEN_BUTTON_DESC,
+        aliases: ["stylus button", "barrel button", "S Pen", "eraser"],
+        visible: !Platform.isIosApp,
+        control: { type: "dropdown", key: "penButtonAction", options: PEN_BUTTON_ACTION_LABELS },
+      },
+      {
+        name: "Second pen button",
+        desc: PEN_BUTTON2_DESC,
+        aliases: ["stylus button", "barrel button"],
+        visible: !Platform.isIosApp,
+        control: { type: "dropdown", key: "penButton2Action", options: PEN_BUTTON_ACTION_LABELS },
       },
       {
         name: "Custom colors",
@@ -763,6 +789,27 @@ export class InkedMarkSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
       );
+
+    if (!Platform.isIosApp) {
+      const penButtons: Array<[string, string, "penButtonAction" | "penButton2Action"]> = [
+        ["Pen button", PEN_BUTTON_DESC, "penButtonAction"],
+        ["Second pen button", PEN_BUTTON2_DESC, "penButton2Action"],
+      ];
+      for (const [name, desc, key] of penButtons) {
+        new Setting(containerEl)
+          .setName(name)
+          .setDesc(desc)
+          .addDropdown((dropdown) => {
+            for (const [id, label] of Object.entries(PEN_BUTTON_ACTION_LABELS)) {
+              dropdown.addOption(id, label);
+            }
+            dropdown.setValue(this.plugin.settings[key]).onChange(async (value) => {
+              this.plugin.settings[key] = value as PenButtonAction;
+              await this.plugin.saveSettings();
+            });
+          });
+      }
+    }
 
     new Setting(containerEl)
       .setName("Custom colors")

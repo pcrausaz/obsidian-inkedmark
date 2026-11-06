@@ -51,6 +51,14 @@ toggle, undo/redo (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`), clear, zoom
 out / fit / in, and a paper-guides toggle (below). The right side of the
 toolbar shows version, build, stroke count, and zoom.
 
+**Stylus buttons.** Hold the side button while you write to erase (default)
+or highlight without touching the toolbar; release it and you're back to the
+selected tool. A second side button highlights by default. Both are set in
+Settings → **Pen button** / **Second pen button**. A pen's eraser end always
+erases. Apple Pencil's buttons aren't available to plugins, so none of this
+applies on iPad. On Android only the second button is reported while the pen
+touches the screen, so press the first button _before_ the pen touches down.
+
 ### Paper guides
 
 Many people write neater on ruled paper than on a blank page. Turn on **paper
@@ -161,12 +169,15 @@ Or run **Insert inline handwriting** to insert a block and open the editor at
 once. Good to know:
 
 - **Closing saves.** _Done_, the ✕ button, or `Esc` write the strokes back into
-  the block; **Discard changes** throws the session away. The note updates as
-  soon as the editor closes.
+  the block; **Discard changes** throws the session away (after asking, if you
+  changed anything). The note updates as soon as the editor closes.
 - **The caption is the block's text layer.** Open the text panel (toolbar `📄`)
   to type it, or press the scan button to have the recognition provider fill
   it in (collapsed to a single line). With **Recognize automatically** on, this
-  happens by itself when you close the editor after drawing.
+  happens by itself when you close the editor after drawing. You don't have to
+  wait for a slow provider: close the editor and the caption is added when the
+  transcription arrives. On phones and tablets the caption field sits under the
+  toolbar, so the on-screen keyboard doesn't cover it.
 - **Nothing outside the block is touched.** The plugin rewrites only the
   `caption:` and payload lines of that one fenced block. If the note changed
   underneath and the block can't be located unambiguously, the save is refused

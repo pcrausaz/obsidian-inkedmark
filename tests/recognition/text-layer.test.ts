@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { readTextSection, writeTextSection } from "../../src/recognition/text-layer";
+import {
+  applyTranscriptionToInkFile,
+  readTextSection,
+  writeTextSection,
+} from "../../src/recognition/text-layer";
+import { emptyDocument, primaryRegion } from "../../src/model/document";
+import { buildInkFile, parseInkFile } from "../../src/model/serialize";
 
 describe("text-layer managed section", () => {
   it("returns null when there is no section", () => {
@@ -40,5 +46,32 @@ describe("text-layer managed section", () => {
     const text = "Agreed scope with [[Anna]]; ship #q3.\nDiagram on the right.";
     const out = writeTextSection("# T", text);
     expect(readTextSection(out)).toBe(text);
+  });
+});
+
+describe("applyTranscriptionToInkFile", () => {
+  const doc = emptyDocument(800);
+  primaryRegion(doc).strokes.push({
+    id: "s1",
+    color: "#000000",
+    size: 4,
+    tool: "pen",
+    pts: [10, 10, 0.5, 20, 20, 0.5],
+  });
+  const file = buildInkFile("---\ninkedmark: true\n---\n\n# Note\n\nMy prose.", doc);
+
+  it("writes the managed section and the hash, keeping prose and ink", () => {
+    const out = applyTranscriptionToInkFile(file, "hello world", "h1", 800);
+    expect(out).not.toBeNull();
+    const parsed = parseInkFile(out ?? "", 800);
+    expect(readTextSection(parsed.body)).toBe("hello world");
+    expect(parsed.body).toContain("My prose.");
+    expect(parsed.body).toContain("inkedmark: true");
+    expect(parsed.doc?.recognizedHash).toBe("h1");
+    expect(primaryRegion(parsed.doc!).strokes).toHaveLength(1);
+  });
+
+  it("refuses a file whose ink block can't be read", () => {
+    expect(applyTranscriptionToInkFile("# Just markdown", "x", "h", 800)).toBeNull();
   });
 });

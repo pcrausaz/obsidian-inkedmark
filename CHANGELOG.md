@@ -7,6 +7,38 @@ extracted from the matching section of this file by `release.yml`.
 
 ## [Unreleased]
 
+### Added
+
+- **Stylus buttons** (#31): hold your pen's side button while writing to erase
+  without reaching for the toolbar; let go and you're back to your tool. A
+  second side button highlights. Choose what each does (Eraser, Highlighter or
+  Nothing) in Settings → _Pen button_ / _Second pen button_. A pen's eraser end
+  now erases too (it used to draw). Works with Windows, Wacom and Android
+  styluses; Apple Pencil's buttons aren't available to plugins, so the
+  settings are hidden on iPad. On Android, press the first button before the
+  pen touches the screen.
+
+### Changed
+
+- **Discard changes asks first** (#30): in the inline handwriting editor,
+  _Discard changes_ now confirms before throwing away anything you drew or
+  typed. With nothing changed, it still closes at once.
+- **Caption field above the keyboard** (#28): on phones and tablets the
+  inline editor's caption sits under the toolbar, so the on-screen keyboard
+  no longer covers it.
+
+### Fixed
+
+- **Recognition finishes after you close the editor** (#29): pressing _Done_
+  while a slow transcription is still running no longer loses it. The ink is
+  saved right away and the caption follows when the transcription arrives.
+  The same holds for ink notes: a transcription that lands after you switched
+  the tab to another note now goes into the note it came from — previously it
+  could be written into the note you had just opened.
+- Inline blocks inserted with _Insert inline handwriting_ still save when you
+  type elsewhere in the note while the editor is open, and the block always
+  starts on its own line.
+
 ### Security
 
 All dev toolchain — nothing here reaches a vault.

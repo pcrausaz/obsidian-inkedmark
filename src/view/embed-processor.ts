@@ -15,8 +15,10 @@
  */
 
 import {
+  type Editor,
   MarkdownRenderChild,
   type MarkdownPostProcessorContext,
+  MarkdownView,
   Notice,
   type Plugin,
   type TFile,
@@ -27,7 +29,9 @@ import { resolveInkColor } from "../canvas/ink-color";
 import { outlineToSvgPath, penOptions, strokeOutline } from "../ink/freehand";
 import { type Bounds, type InkDocument, documentBounds, emptyDocument } from "../model/document";
 import {
-  findInlineBlock,
+  type BlockRange,
+  blockInner,
+  locateInlineBlock,
   parseInlineBlock,
   replaceInlineBlock,
   updateInlineBlockSource,
@@ -169,9 +173,12 @@ function renderInlineBlock(
       // already be detached (Live Preview re-renders eagerly).
       const info = ctx.getSectionInfo(el);
       const hint = info ? { lineStart: info.lineStart, lineEnd: info.lineEnd } : undefined;
-      new InlineInkModal(plugin, editDoc, caption, (result) => {
-        void writeInlineBlock(plugin, ctx.sourcePath, source, hint, result);
-      }).open();
+      new InlineInkModal(
+        plugin,
+        editDoc,
+        caption,
+        inlineBlockSaver(plugin, ctx.sourcePath, source, hint),
+      ).open();
     } catch (error) {
       // Mobile has no console within reach; make a failure visible.
       const message = error instanceof Error ? error.message : String(error);
@@ -180,34 +187,111 @@ function renderInlineBlock(
   });
 }
 
-/** Persist an edited inline block: rewrite its payload (and caption) inside the fenced block. */
-async function writeInlineBlock(
+/**
+ * Save callback for one editing session of an inline block. A session can
+ * save more than once — the ink when the editor closes, then the caption when
+ * a transcription still running at close time lands (issue #29) — so the
+ * saver remembers what it last wrote to find the block again, and chains
+ * writes so they never interleave.
+ *
+ * With `editor` (a block just inserted by the command), writes go through that
+ * editor's buffer while its note is still open — the file on disk may lag it.
+ * Otherwise, or once that note is closed, the file at `sourcePath` is
+ * rewritten directly. A null `sourcePath` (an editor that isn't a note view)
+ * always writes through `editor`.
+ */
+export function inlineBlockSaver(
+  plugin: InkedMarkPlugin,
+  sourcePath: string | null,
+  source: string,
+  hint: BlockRange | undefined,
+  editor?: Editor,
+): (result: InlineInkResult) => void {
+  let current = source;
+  let currentHint = hint;
+  let chain: Promise<void> = Promise.resolve();
+  return (result) => {
+    chain = chain.then(async () => {
+      const payload = encodeDocument(result.doc);
+      // Merge into the block as it is now: a caption the session didn't touch
+      // (`null`) keeps whatever the note holds.
+      const update = (inner: string): string =>
+        updateInlineBlockSource(inner, payload, result.caption);
+      const written =
+        editor && (sourcePath === null || editorStillOpen(plugin, editor, sourcePath))
+          ? writeViaEditor(editor, current, currentHint, update)
+          : sourcePath !== null
+            ? await writeViaFile(plugin, sourcePath, current, currentHint, update)
+            : null;
+      if (!written) {
+        new Notice(
+          "InkedMark: couldn't find the handwriting block in the note (was it edited meanwhile?). " +
+            "Your drawing was not saved.",
+          8000,
+        );
+        return;
+      }
+      current = written.inner;
+      currentHint = {
+        lineStart: written.lineStart,
+        lineEnd: written.lineStart + written.inner.split("\n").length + 1,
+      };
+    });
+  };
+}
+
+interface Written {
+  lineStart: number;
+  inner: string;
+}
+
+function editorStillOpen(plugin: InkedMarkPlugin, editor: Editor, sourcePath: string): boolean {
+  return plugin.app.workspace
+    .getLeavesOfType("markdown")
+    .some(
+      (leaf) =>
+        leaf.view instanceof MarkdownView &&
+        leaf.view.editor === editor &&
+        leaf.view.file?.path === sourcePath,
+    );
+}
+
+function writeViaEditor(
+  editor: Editor,
+  source: string,
+  hint: BlockRange | undefined,
+  update: (inner: string) => string,
+): Written | null {
+  const text = editor.getValue();
+  const range = locateInlineBlock(text, source, hint);
+  if (!range) return null;
+  const inner = update(blockInner(text, range));
+  editor.replaceRange(
+    inner + "\n",
+    { line: range.lineStart + 1, ch: 0 },
+    { line: range.lineEnd, ch: 0 },
+  );
+  return { lineStart: range.lineStart, inner };
+}
+
+async function writeViaFile(
   plugin: InkedMarkPlugin,
   sourcePath: string,
   source: string,
-  hint: { lineStart: number; lineEnd: number } | undefined,
-  result: InlineInkResult,
-): Promise<void> {
+  hint: BlockRange | undefined,
+  update: (inner: string) => string,
+): Promise<Written | null> {
   const file = plugin.app.vault.getFileByPath(sourcePath);
-  if (!file) {
-    new Notice("InkedMark: couldn't save — the note is no longer available.");
-    return;
-  }
-  const inner = updateInlineBlockSource(source, encodeDocument(result.doc), result.caption);
-  let written = false;
+  if (!file) return null;
+  let written: Written | null = null;
   await plugin.app.vault.process(file, (data) => {
-    const range = findInlineBlock(data, source, hint);
+    const range = locateInlineBlock(data, source, hint);
     if (!range) return data;
-    written = true;
+    const inner = update(blockInner(data, range));
+    written = { lineStart: range.lineStart, inner };
     return replaceInlineBlock(data, range, inner);
   });
-  if (!written) {
-    new Notice(
-      "InkedMark: couldn't find the handwriting block in the note (was it edited meanwhile?). " +
-        "Your drawing was not saved.",
-      8000,
-    );
-  }
+  return written;
 }
 
 function drawStatic(container: HTMLElement, doc: InkDocument, bounds: Bounds): void {

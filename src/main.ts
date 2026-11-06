@@ -19,6 +19,7 @@ import {
 import { DEFAULT_SETTINGS, InkedMarkSettingTab, type InkedMarkSettings } from "./settings";
 import { ICON_INK_NOTE, registerIcons } from "./icons";
 import type { PaperGuide } from "./canvas/guides";
+import { type PenButton, normalizePenButtonAction, penButtonTool } from "./input/pen-buttons";
 import { emptyDocument } from "./model/document";
 import { buildInkFile, encodeDocument } from "./model/serialize";
 import { buildInlineBlock } from "./model/inline-block";
@@ -41,7 +42,7 @@ import { ConfirmModal } from "./ui/confirm-modal";
 import { WhatsNewModal } from "./ui/whats-new-modal";
 import { changelogSince, releasedChangelog } from "./changelog";
 import { InkView } from "./view/ink-view";
-import { registerInkEmbeds } from "./view/embed-processor";
+import { inlineBlockSaver, registerInkEmbeds } from "./view/embed-processor";
 import { InlineInkModal } from "./view/inline-ink-modal";
 
 /** Something that can transcribe its strokes with a provider (ink view, inline editor). */
@@ -85,6 +86,15 @@ export default class InkedMarkPlugin extends Plugin {
         ? MANUAL_PROVIDER_ID
         : this.settings.recognitionProviderId;
     return resolveProvider(this.providers, id);
+  }
+
+  /** Temporary tool for a stroke drawn with a stylus button held (null = selected tool). */
+  penButtonTool(button: PenButton | null): "eraser" | "highlighter" | null {
+    return penButtonTool(
+      button,
+      normalizePenButtonAction(this.settings.penButtonAction, DEFAULT_SETTINGS.penButtonAction),
+      normalizePenButtonAction(this.settings.penButton2Action, DEFAULT_SETTINGS.penButton2Action),
+    );
   }
 
   override async onload(): Promise<void> {
@@ -136,23 +146,22 @@ export default class InkedMarkPlugin extends Plugin {
     this.addCommand({
       id: "insert-inline-handwriting",
       name: "Insert inline handwriting",
-      editorCallback: (editor: Editor) => {
+      editorCallback: (editor: Editor, ctx) => {
+        // In a note, saves may fall back to the file once the note is closed;
+        // other editors (e.g. canvas cards) are only ever written through `editor`.
+        const path = ctx instanceof MarkdownView ? (ctx.file?.path ?? null) : null;
         const doc = emptyDocument(this.settings.paperWidth);
         const block = buildInlineBlock(encodeDocument(doc));
         const from = editor.getCursor("from");
-        editor.replaceSelection(block);
-        const to = editor.getCursor("to");
-        // Open the editor right away; on close, swap the just-inserted block for
-        // the drawn one — through the editor buffer, since the file on disk may
-        // not have been flushed yet.
-        new InlineInkModal(this, doc, "", (result) => {
-          if (editor.getRange(from, to) !== block) {
-            new Notice("InkedMark: the note changed — the drawing was not saved.");
-            return;
-          }
-          const next = buildInlineBlock(encodeDocument(result.doc), result.caption ?? "");
-          editor.replaceRange(next, from, to);
-        }).open();
+        // A fence only opens a block at the start of a line.
+        const lead = from.ch > 0 ? "\n" : "";
+        editor.replaceSelection(lead + block);
+        // Open the editor right away; saves locate the just-inserted block
+        // through the editor buffer (the file on disk may not be flushed yet).
+        const lineStart = from.line + (lead ? 1 : 0);
+        const inner = block.split("\n").slice(1, -2).join("\n");
+        const hint = { lineStart, lineEnd: lineStart + inner.split("\n").length + 1 };
+        new InlineInkModal(this, doc, "", inlineBlockSaver(this, path, inner, hint, editor)).open();
       },
     });
 

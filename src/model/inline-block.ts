@@ -79,6 +79,34 @@ export interface BlockRange {
   lineEnd: number;
 }
 
+/** Every fenced ```inkedmark``` block in a note, in order. */
+export function inlineBlockRanges(note: string): BlockRange[] {
+  const lines = note.split("\n");
+  const ranges: BlockRange[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const open = FENCE_OPEN.exec(lines[i]);
+    if (!open) continue;
+    const fence = open[1];
+    for (let j = i + 1; j < lines.length; j++) {
+      const t = lines[j].trim();
+      if (t.startsWith(fence[0].repeat(fence.length)) && /^[`~]+\s*$/.test(t)) {
+        ranges.push({ lineStart: i, lineEnd: j });
+        i = j;
+        break;
+      }
+    }
+  }
+  return ranges;
+}
+
+/** Inner text (between the fences) of the block at `range`. */
+export function blockInner(note: string, range: BlockRange): string {
+  return note
+    .split("\n")
+    .slice(range.lineStart + 1, range.lineEnd)
+    .join("\n");
+}
+
 /**
  * Locate a fenced ```inkedmark``` block whose inner text equals `source` in a
  * note. `hint` (from Obsidian's `getSectionInfo`) is checked first; when it no
@@ -99,22 +127,32 @@ export function findInlineBlock(
     lines.slice(r.lineStart + 1, r.lineEnd).join("\n") === source;
 
   if (hint && matches(hint)) return hint;
+  const found = inlineBlockRanges(note).filter(matches);
+  return found.length === 1 ? found[0] : null;
+}
 
-  const found: BlockRange[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const open = FENCE_OPEN.exec(lines[i]);
-    if (!open) continue;
-    const fence = open[1];
-    for (let j = i + 1; j < lines.length; j++) {
-      const t = lines[j].trim();
-      if (t.startsWith(fence[0].repeat(fence.length)) && /^[`~]+\s*$/.test(t)) {
-        const range = { lineStart: i, lineEnd: j };
-        if (matches(range)) found.push(range);
-        i = j;
-        break;
-      }
-    }
-  }
+/**
+ * Like `findInlineBlock`, but when no block's text matches exactly, fall back
+ * to the block holding the same stroke payload (`v<n>:` line) — its caption
+ * may have changed meanwhile (e.g. a background transcription of an earlier
+ * editing session landed). Still refuses ambiguity: identical drawings
+ * resolve only through `hint`.
+ */
+export function locateInlineBlock(
+  note: string,
+  source: string,
+  hint?: BlockRange,
+): BlockRange | null {
+  const exact = findInlineBlock(note, source, hint);
+  if (exact) return exact;
+  const payload = parseInlineBlock(source).payload;
+  if (!payload) return null;
+  const found = inlineBlockRanges(note).filter(
+    (r) => parseInlineBlock(blockInner(note, r)).payload === payload,
+  );
+  const atHint =
+    hint && found.find((r) => r.lineStart === hint.lineStart && r.lineEnd === hint.lineEnd);
+  if (atHint) return atHint;
   return found.length === 1 ? found[0] : null;
 }
 

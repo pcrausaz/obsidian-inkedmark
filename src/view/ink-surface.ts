@@ -9,6 +9,9 @@
  *
  * Layout (all inside the host element):
  *
+ * Each pen/mouse gesture fixes its tool at pointer-down: the toolbar's tool,
+ * or a temporary one picked by a held stylus button (`penButtonTool`).
+ *
  *   .inkedmark-surface          position:relative, clips
  *     .inkedmark-paper-bg       visible page behind the ink
  *     canvas.dry                pinned to the visible viewport
@@ -31,6 +34,7 @@ import {
   PAPER_GROWTH_MARGIN,
 } from "../constants";
 import { type PaperGuide } from "../canvas/guides";
+import type { PenButton } from "../input/pen-buttons";
 import { Renderer, type StrokeStyle } from "../canvas/renderer";
 import type { ViewportState } from "../canvas/viewport";
 import {
@@ -77,6 +81,13 @@ export interface InkSurfaceOptions {
   paperGuideSpacing: number;
   /** Show the pointer-diagnostics HUD. */
   debug: boolean;
+  /** Chromium-on-Android stylus button mapping (see input/pen-buttons.ts). */
+  androidStylus: boolean;
+  /**
+   * Temporary tool for a stroke drawn with a stylus button held, or null to
+   * use the selected tool. Read at each pen-down, so setting changes apply live.
+   */
+  penButtonTool(button: PenButton | null): ActiveTool | null;
 }
 
 export interface InkSurfaceCallbacks {
@@ -146,6 +157,9 @@ export class InkSurface {
   private moveDx = 0;
   private moveDy = 0;
 
+  /** Tool of the gesture in progress (fixed at pointer-down); null when none or refused. */
+  private gestureTool: ActiveTool | null = null;
+
   // Wet-render throttle: coalesce many pointermoves into one draw per frame.
   private wetFrame = 0;
   private pendingPredicted: PointerSample[] = [];
@@ -163,6 +177,7 @@ export class InkSurface {
   private hudPressure = 0;
   private hudMaxP = 0;
   private hudPointerType = "";
+  private hudButtons = 0;
   private hudFrame = 0;
   private hudSumDown = 0;
   private hudSumUp = 0;
@@ -207,6 +222,7 @@ export class InkSurface {
       this.scrollEl,
       (cx, cy) => this.toWorld(cx, cy),
       this.pointerCallbacks,
+      options.androidStylus,
     );
     this.pointer.attach();
 
@@ -488,7 +504,7 @@ export class InkSurface {
 
   /** The drawing tool for a produced stroke (eraser/select never produce one). */
   private strokeTool(): Tool {
-    return this.toolState.tool === "highlighter" ? "highlighter" : "pen";
+    return this.gestureTool === "highlighter" ? "highlighter" : "pen";
   }
 
   private currentStyle(): StrokeStyle {
@@ -517,14 +533,17 @@ export class InkSurface {
   }
 
   private readonly pointerCallbacks: PointerControllerCallbacks = {
-    onStart: (sample) => {
+    onStart: (sample, button) => {
+      this.gestureTool = null;
       if (this.callbacks.isLocked?.()) return;
-      if (this.toolState.tool === "eraser") {
+      const tool = this.options.penButtonTool(button) ?? this.toolState.tool;
+      this.gestureTool = tool;
+      if (tool === "eraser") {
         this.eraseIds = new Set();
         this.eraseAt(sample);
         return;
       }
-      if (this.toolState.tool === "select") {
+      if (tool === "select") {
         this.selectStart(sample);
         return;
       }
@@ -533,11 +552,11 @@ export class InkSurface {
       this.renderer?.clearWet();
     },
     onMove: (coalesced, predicted) => {
-      if (this.toolState.tool === "eraser") {
+      if (this.gestureTool === "eraser") {
         for (const sample of coalesced) this.eraseAt(sample);
         return;
       }
-      if (this.toolState.tool === "select") {
+      if (this.gestureTool === "select") {
         this.selectMove(coalesced[coalesced.length - 1]);
         return;
       }
@@ -550,30 +569,26 @@ export class InkSurface {
       this.scheduleWet();
     },
     onEnd: (sample) => {
-      if (this.toolState.tool === "eraser") {
-        this.eraseCommit();
-        return;
-      }
-      if (this.toolState.tool === "select") {
-        this.selectEnd();
-        return;
-      }
-      this.finishStroke(sample);
+      const tool = this.gestureTool;
+      if (tool === "eraser") this.eraseCommit();
+      else if (tool === "select") this.selectEnd();
+      else this.finishStroke(sample);
+      this.gestureTool = null;
     },
     onCancel: () => {
-      if (this.toolState.tool === "eraser") {
+      const tool = this.gestureTool;
+      if (tool === "eraser") {
         this.eraseIds = new Set();
         this.renderDry();
-        return;
-      }
-      if (this.toolState.tool === "select") {
+      } else if (tool === "select") {
         this.selectCancel();
-        return;
+      } else {
+        // Salvage rather than discard: iOS can fire pointercancel on a normal pen
+        // lift (e.g. when the surface briefly interprets the drag as a scroll), so
+        // dropping the stroke here would make just-drawn ink vanish.
+        this.finishStroke(null);
       }
-      // Salvage rather than discard: iOS can fire pointercancel on a normal pen
-      // lift (e.g. when the surface briefly interprets the drag as a scroll), so
-      // dropping the stroke here would make just-drawn ink vanish.
-      this.finishStroke(null);
+      this.gestureTool = null;
     },
     onPan: (deltaY) => {
       // Native touch-scroll is disabled (touch-action: none); drive it manually.
@@ -594,7 +609,8 @@ export class InkSurface {
   private onDebug(record: PointerDebugRecord): void {
     if (!this.debug) return;
     this.hudPointerType = record.pointerType;
-    this.hudPressure = record.pressure;
+    this.hudButtons = record.buttons;
+    if (record.type !== "hover") this.hudPressure = record.pressure;
 
     switch (record.type) {
       case "down":
@@ -626,6 +642,10 @@ export class InkSurface {
         this.hudSumCancel += 1;
         this.pushHud("cx");
         break;
+      case "hover":
+        // Logged only when the hovering pen's buttons change (barrel diagnostics).
+        this.pushHud(`hv${record.buttons}`);
+        break;
     }
     this.scheduleHud();
   }
@@ -650,7 +670,7 @@ export class InkSurface {
       `${seq}\n` +
         `cur mv=${this.hudMoves} pts=${this.hudPts} gap=${Math.round(this.hudMaxGap)}ms maxP=${this.hudMaxP.toFixed(2)}\n` +
         `Σ dn=${this.hudSumDown} up=${this.hudSumUp} cx=${this.hudSumCancel} commit=${strokeCount(this.doc)}\n` +
-        `${this.hudPointerType || "-"} p=${this.hudPressure.toFixed(2)}`,
+        `${this.hudPointerType || "-"} p=${this.hudPressure.toFixed(2)} b=${this.hudButtons}`,
     );
   }
 

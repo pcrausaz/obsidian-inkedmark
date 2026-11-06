@@ -8,6 +8,8 @@
  * No DOM, no Obsidian.
  */
 
+import { buildInkFile, parseInkFile } from "../model/serialize";
+
 export const SECTION_OPEN = "<!--inkedmark-text-->";
 export const SECTION_CLOSE = "<!--/inkedmark-text-->";
 
@@ -46,4 +48,23 @@ export function writeTextSection(body: string, text: string): string {
 function joinBody(before: string, after: string): string {
   const merged = `${before.replace(/\s+$/, "")}\n${after.replace(/^\s+/, "")}`;
   return merged.replace(/\n{3,}/g, "\n\n").replace(/^\n+/, "");
+}
+
+/**
+ * Merge a transcription into a full `.ink.md` file — for a result that lands
+ * after its ink view moved on to another note or closed. Records `hash` (the
+ * ink the transcription was made from) like the in-view path does. Returns
+ * null when the file's ink block can't be read: never rebuild a file we
+ * failed to parse.
+ */
+export function applyTranscriptionToInkFile(
+  markdown: string,
+  text: string,
+  hash: string,
+  fallbackWidth = 1024,
+): string | null {
+  const { body, doc } = parseInkFile(markdown, fallbackWidth);
+  if (!doc) return null;
+  doc.recognizedHash = hash;
+  return buildInkFile(writeTextSection(body, text), doc);
 }

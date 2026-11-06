@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  blockInner,
   buildInlineBlock,
   findInlineBlock,
+  inlineBlockRanges,
+  locateInlineBlock,
   parseInlineBlock,
   replaceInlineBlock,
   updateInlineBlockSource,
@@ -100,5 +103,48 @@ describe("findInlineBlock / replaceInlineBlock", () => {
   it("rewrites only the block interior", () => {
     const out = replaceInlineBlock(note, { lineStart: 2, lineEnd: 5 }, "caption: A\nv1:new");
     expect(out).toBe(note.replace("v1:aaa", "v1:new"));
+  });
+});
+
+describe("inlineBlockRanges / blockInner", () => {
+  it("lists every block with its interior", () => {
+    const note = "a\n```inkedmark\nv1:a\n```\n```js\nx\n```\n~~~~inkedmark\nv1:b\n~~~~";
+    const ranges = inlineBlockRanges(note);
+    expect(ranges).toEqual([
+      { lineStart: 1, lineEnd: 3 },
+      { lineStart: 7, lineEnd: 9 },
+    ]);
+    expect(blockInner(note, ranges[1])).toBe("v1:b");
+  });
+
+  it("ignores an unclosed block", () => {
+    expect(inlineBlockRanges("```inkedmark\nv1:a\n")).toEqual([]);
+  });
+});
+
+describe("locateInlineBlock", () => {
+  const note = "intro\n\n```inkedmark\ncaption: recognized later\nv1:aaa\n```\n";
+
+  it("prefers an exact match", () => {
+    const n = "```inkedmark\ncaption: A\nv1:aaa\n```";
+    expect(locateInlineBlock(n, "caption: A\nv1:aaa")).toEqual({ lineStart: 0, lineEnd: 3 });
+  });
+
+  it("falls back to the payload when the caption changed meanwhile", () => {
+    expect(locateInlineBlock(note, "caption: \nv1:aaa")).toEqual({ lineStart: 2, lineEnd: 5 });
+  });
+
+  it("refuses an ambiguous payload unless the hint picks one", () => {
+    const dup = "```inkedmark\ncaption: x\nv1:a\n```\n```inkedmark\ncaption: y\nv1:a\n```";
+    expect(locateInlineBlock(dup, "caption: z\nv1:a")).toBeNull();
+    expect(locateInlineBlock(dup, "caption: z\nv1:a", { lineStart: 4, lineEnd: 7 })).toEqual({
+      lineStart: 4,
+      lineEnd: 7,
+    });
+  });
+
+  it("returns null without a payload or a match", () => {
+    expect(locateInlineBlock(note, "caption: only")).toBeNull();
+    expect(locateInlineBlock(note, "v1:zzz")).toBeNull();
   });
 });

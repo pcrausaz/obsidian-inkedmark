@@ -19,6 +19,7 @@ export default defineConfig({
         "src/canvas/ink-color.ts",
         "src/canvas/guides.ts",
         "src/input/palm-rejection.ts",
+        "src/input/pen-buttons.ts",
         "src/recognition/text-layer.ts",
         "src/recognition/registry.ts",
         "src/recognition/manual.ts",

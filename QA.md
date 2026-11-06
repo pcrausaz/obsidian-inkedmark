@@ -60,6 +60,15 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       undo to the exact prior state and redo forward; redo clears after a new edit.
 - [ ] Clear (trash) removes all ink and is undoable.
 - [ ] Default ink color is visible on the current theme (white on dark).
+- [ ] iPad: Settings shows **no** Pen button / Second pen button rows.
+- [ ] Stylus with a side button (Windows/Wacom/Surface, Android): holding the
+      button while writing erases (default); setting it to Highlighter
+      highlights; Nothing draws with the selected tool. Releasing returns to
+      the selected tool; the toolbar never changes. No context menu appears.
+- [ ] Pen eraser end (Surface/Wacom): erases regardless of the selected tool.
+- [ ] Android: if the side button does nothing, turn on the input debug
+      overlay and note the `b=` value / `hv…` tokens while hovering, pressing
+      and writing with the button held (attach to issue #31).
 
 ## P1 — Paper guides (1.4)
 
@@ -115,6 +124,18 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       ink (consent prompt on first cloud use, as in ink notes). With
       **Recognize automatically** on (and consent given), closing the editor
       after drawing fills the caption by itself a moment later.
+- [ ] **Discard changes** with no edits closes at once; after drawing (or
+      typing a caption) it asks first — Cancel keeps the editor open with the
+      ink, Discard closes and leaves the block untouched.
+- [ ] Recognize, then press **Done** at once (slow provider, e.g. self-hosted):
+      the ink appears in the note immediately; the caption arrives when the
+      transcription finishes ("saved as the block's caption"). Same for a block
+      just made with **Insert inline handwriting**, and while typing above the
+      block in the meantime.
+- [ ] Reopen that block before the transcription lands, draw more, close:
+      both the new ink and the caption end up in the block.
+- [ ] Mobile: the caption field sits under the toolbar; tapping it raises the
+      keyboard without covering the field (Android tablet: issue #28).
 - [ ] Same from Live Preview (cursor outside the block).
 - [ ] iPad: the editor is full-screen; Pencil draws, one-finger drag pans,
       pinch zooms; closing writes back and the block re-renders.
@@ -143,6 +164,10 @@ inheritance actually holds on device:
       managed section.
 - [ ] One-time consent modal appears on the first cloud run only; auto-recognize
       (if enabled) never prompts.
+- [ ] Ink note: start a (slow) recognition, then open a **different** ink note
+      in the same tab before it finishes: the transcription lands in the first
+      note ("saved to …"), the second note is untouched. Same after closing the
+      tab.
 - [ ] Desktop: on-device (experimental) small model transcribes a simple page;
       the progress notice shows download % then line N/M.
 - [ ] Mobile: on-device provider is absent from settings; if synced-on, a scan
