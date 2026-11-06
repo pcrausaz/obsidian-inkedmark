@@ -5,6 +5,16 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [1.5.1] - 2026-11-06
+
+Maintenance release: nothing changes in how InkedMark works. It republishes
+1.5.0 (see below for what's new) so Obsidian's plugin review can verify it.
+
+### Fixed
+
+- Build: the dependency lockfile is now in sync for npm 11, which Obsidian's
+  plugin review uses to install the build tools (1.5.0 failed that check).
+
 ## [1.5.0] - 2026-11-06
 
 ### Added
