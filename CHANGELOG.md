@@ -5,6 +5,22 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Security
+
+All dev toolchain — nothing here reaches a vault.
+
+- `vite` 8.3.4 (#27): GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv,
+  GHSA-r825-w8mm-5pxw, GHSA-9jrq-w75r-8gcw, GHSA-rq7h-c2jc-7f22,
+  GHSA-vfpm-58rq-9qcg — via vitest.
+- `fast-uri` 3.1.9 (#32): GHSA-wjr9-j795-jxcr, GHSA-w74x-v6f9-j3xg,
+  GHSA-333x-w4r6-6crp, GHSA-xhq7-xmqj-769h — via ESLint.
+- `vitest` / `@vitest/coverage-v8` 5.1 (`@vitest/mocker`
+  GHSA-qxg6-89mg-rqv8, GHSA-xp26-3454-mjgp).
+- `minimatch` 11.0.5 for the ESLint plugins that pulled 8.x–10.x
+  (GHSA-g3hv-75wg-m249; the fix exists only in 11.x), via scoped overrides.
+
 ## [1.4.2] - 2026-10-18
 
 ### Changed
