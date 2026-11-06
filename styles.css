@@ -361,12 +361,15 @@ body.theme-dark {
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-/* iPad: Obsidian pads every view's bottom by the keyboard height and, once
-   the keyboard has settled, also shrinks the app by it. Scrolling views need
-   that padding; this flex layout doesn't, and with both the text panel ends
-   up a keyboard height above the keyboard. Keep it during the show animation
-   (the app is still full height then), drop it afterwards. `!important`:
-   the iPad app's own rule outranked a plain override on device. */
+/* iPad: while the keyboard is up, iOS counts it in env(safe-area-inset-bottom),
+   which Obsidian uses for every view's bottom padding — and Obsidian also
+   shrinks the app by --keyboard-height. Scrolling views don't mind; this flex
+   layout lost the keyboard height twice (text panel a keyboard height above
+   the keyboard). Subtract it, as Obsidian's phone layout does. During the
+   show animation the app is still full height, so the padding stays. */
 body.is-mobile:not(.keyboard-animating) .workspace-leaf-content .view-content.inkedmark-view {
-  padding-bottom: max(var(--safe-area-inset-bottom), var(--size-4-8)) !important;
+  padding-bottom: max(
+    calc(var(--safe-area-inset-bottom) - var(--keyboard-height)),
+    var(--size-4-8)
+  );
 }

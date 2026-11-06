@@ -74,6 +74,7 @@ interface Sample {
   vvOffsetTop: number;
   pageTop: number;
   keyboardHeight: string;
+  safeAreaBottom: string;
   bodyClasses: string;
   chain: ChainEntry[];
   /** Rules setting the view's bottom padding (view-content only). */
@@ -132,6 +133,10 @@ function snapshot(field: HTMLElement, at: string, t0: number): Sample {
     keyboardHeight: win
       .getComputedStyle(doc.documentElement)
       .getPropertyValue("--keyboard-height")
+      .trim(),
+    safeAreaBottom: win
+      .getComputedStyle(doc.documentElement)
+      .getPropertyValue("--safe-area-inset-bottom")
       .trim(),
     bodyClasses: [...doc.body.classList]
       .filter((c) => /keyboard|mobile|tablet|phone|ios/.test(c))
