@@ -81,6 +81,7 @@ export class InlineInkModal extends Modal {
       tool: settings.defaultTool === "select" ? "pen" : settings.defaultTool,
       color: settings.defaultColor,
       size: settings.defaultSize,
+      highlighterColor: settings.defaultHighlighterColor,
       highlighterSize: settings.defaultHighlighterSize,
       pressureEnabled: settings.pressureEnabled,
       guidesVisible: settings.paperGuideVisible,

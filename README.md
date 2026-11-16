@@ -46,11 +46,15 @@ and Obsidian's search and graph see all of it through a first-class text layer.
 | Eraser      | `E` | Drag across strokes; one undo step per gesture                 |
 | Select      | `V` | Drag a box to select; drag inside it to move; `Delete` removes |
 
-Plus: color swatches (add your own in settings), stroke sizes (the pen and the
-highlighter each remember their own), a pressure
+Plus: color swatches (add your own in settings), stroke sizes, a pressure
 toggle, undo/redo (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`), clear, zoom
 out / fit / in, and a paper-guides toggle (below). The right side of the
 toolbar shows version, build, stroke count, and zoom.
+
+The pen and the highlighter each keep their own color and size: the swatches
+and size buttons show and change those of the tool in hand. The highlighter
+starts in orange at size 12; change the starting values in Settings →
+**Default highlighter color** / **Default highlighter size**.
 
 **Stylus buttons.** Hold the side button while you write to erase (default)
 or highlight without touching the toolbar; release it and you're back to the

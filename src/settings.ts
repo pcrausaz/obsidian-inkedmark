@@ -48,6 +48,8 @@ export interface InkedMarkSettings {
   customColors: string[];
   defaultColor: string;
   defaultSize: number;
+  /** Highlighter color selected when a note opens (separate from the pen's, #34). */
+  defaultHighlighterColor: string;
   /** Highlighter stroke size selected when a note opens (separate from the pen's, #34). */
   defaultHighlighterSize: number;
   highlighterAlpha: number;
@@ -100,6 +102,7 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   customColors: [],
   defaultColor: PALETTE[0],
   defaultSize: SIZES[1],
+  defaultHighlighterColor: PALETTE[5],
   defaultHighlighterSize: SIZES[4],
   highlighterAlpha: DEFAULT_HIGHLIGHTER_ALPHA,
   penButtonAction: "eraser",
@@ -355,9 +358,15 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       },
       {
         name: "Default ink color",
-        desc: "Color selected when a new ink note opens.",
+        desc: "Pen color selected when a new ink note opens. The highlighter keeps its own color.",
         aliases: ["pen color"],
         control: { type: "color", key: "defaultColor" },
+      },
+      {
+        name: "Default highlighter color",
+        desc: "Highlighter color selected when an ink note opens. The pen keeps its own color.",
+        aliases: ["highlighter colour", "marker color"],
+        control: { type: "color", key: "defaultHighlighterColor" },
       },
       {
         name: "Default tool",
@@ -768,10 +777,20 @@ export class InkedMarkSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Default ink color")
-      .setDesc("Color selected when a new ink note opens.")
+      .setDesc("Pen color selected when a new ink note opens. The highlighter keeps its own color.")
       .addColorPicker((picker) =>
         picker.setValue(this.plugin.settings.defaultColor).onChange(async (value) => {
           this.plugin.settings.defaultColor = value;
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Default highlighter color")
+      .setDesc("Highlighter color selected when an ink note opens. The pen keeps its own color.")
+      .addColorPicker((picker) =>
+        picker.setValue(this.plugin.settings.defaultHighlighterColor).onChange(async (value) => {
+          this.plugin.settings.defaultHighlighterColor = value;
           await this.plugin.saveSettings();
         }),
       );

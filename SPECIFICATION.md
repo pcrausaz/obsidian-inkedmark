@@ -348,12 +348,18 @@ src/
     whether Android mapping is active — enough to diagnose a stylus from one
     screenshot. It paints as soon as it is enabled (an empty HUD looked like
     "not working") and is available in the inline-block editor too.
-- **Per-tool stroke size (#34, 1.5.2):** pen and highlighter keep separate
-  sizes (`ToolbarState.size` / `highlighterSize`, defaults from
-  `defaultSize` / `defaultHighlighterSize`, highlighter 12). The size buttons
-  show and edit the size of the tool in hand; eraser/select show the pen's.
-  A highlighter picked by a pen button uses the highlighter size. Colors stay
-  shared between tools (a per-tool color was suggested in #34 but not done).
+- **Per-tool stroke style (#34, 1.5.2)** (`ink/tool-style.ts`, pure): pen and
+  highlighter keep separate colors and sizes (`ToolbarState` color/size and
+  highlighterColor/highlighterSize; defaults `defaultColor`/`defaultSize` and
+  `defaultHighlighterColor`/`defaultHighlighterSize` = palette orange
+  `#f08c00`, 12). Swatches and size buttons show and edit the style of the tool
+  in hand; eraser/select show the pen's. Both the wet preview and the
+  committed stroke take the drawing tool's style, so a highlighter picked by a
+  pen button gets a real highlighter color instead of the pen's ink. Orange,
+  not yellow: yellow isn't in the palette, and adding it would grow a toolbar
+  that already wraps on phones while being illegible as pen ink on light
+  paper — users can add it as a custom color. The dark-theme black→white swap
+  of the default ink stays pen-only.
 - **Settings synced from another device** (`onExternalSettingsChange`, 1.5.2):
   the plugin reloads data.json and reapplies the debug overlay and paper
   guides to open views, so a session never keeps — and later saves back —

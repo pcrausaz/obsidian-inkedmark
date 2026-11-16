@@ -238,11 +238,17 @@ inheritance actually holds on device:
 - [ ] Synced vault: toggle the overlay (or paper guides) on device A; once
       data.json syncs, device B's open ink views and settings tab follow
       without a restart.
-- [ ] **Separate sizes** (#34): select the pen, pick 3; select the
-      highlighter, pick 12; back to the pen the size buttons show 3 and new
-      pen strokes are thin; the highlighter shows 12 and highlights are thick.
-      Settings → _Default highlighter size_ sets the highlighter's size when a
-      note (or the inline editor) opens; _Default pen size_ the pen's.
+- [ ] **Separate styles** (#34): select the pen, pick black and 3; select the
+      highlighter: the toolbar shows orange and 12. Pick green and 8; back to
+      the pen the toolbar shows black and 3 again. Draw with each: strokes keep
+      their tool's color and size after the pen lifts (not just while drawing),
+      and after reopening the note. Eraser/select show the pen's style.
+- [ ] A highlighter picked by a pen button (held on desktop, hover click on
+      Android) draws in the highlighter's color and size.
+- [ ] Settings → _Default highlighter color_ / _Default highlighter size_ set
+      the highlighter's style when a note (or the inline editor) opens;
+      _Default ink color_ / _Default pen size_ the pen's. On a dark theme the
+      default pen ink still starts white; the highlighter stays orange.
 
 ## P2 — What's new modal
 

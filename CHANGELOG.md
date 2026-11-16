@@ -9,10 +9,12 @@ extracted from the matching section of this file by `release.yml`.
 
 ### Added
 
-- **Separate pen and highlighter sizes** (#34): the pen and the highlighter
-  each keep their own stroke size. Pick a size with the highlighter selected
-  and the pen keeps its own. Set the starting sizes in Settings → _Default pen
-  size_ / _Default highlighter size_ (the highlighter now starts at 12).
+- **Separate pen and highlighter styles** (#34): the pen and the highlighter
+  each keep their own color and stroke size. Pick a color or size with the
+  highlighter selected and the pen keeps its own. The highlighter now starts
+  in orange at size 12; change that in Settings → _Default highlighter color_
+  / _Default highlighter size_ (the pen's are _Default ink color_ / _Default
+  pen size_). A highlighter picked with a stylus button uses them too.
 - **Delete an inline block** (#33): the inline handwriting editor has a
   _Delete block_ button that removes the whole block from the note, after
   asking.

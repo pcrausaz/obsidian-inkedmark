@@ -12,6 +12,7 @@ export default defineConfig({
         "src/changelog.ts",
         "src/model/**/*.ts",
         "src/ink/stroke-builder.ts",
+        "src/ink/tool-style.ts",
         "src/canvas/viewport.ts",
         "src/canvas/hit-test.ts",
         "src/canvas/spatial-index.ts",

@@ -13,7 +13,7 @@
  * or a temporary one picked by a held stylus button (`penButtonTool`). On
  * Android the primary button is clicked while hovering instead, toggling the
  * selected tool (see input/pen-buttons.ts). Pen and highlighter keep separate
- * sizes (`ToolbarState.size` / `highlighterSize`, #34).
+ * colors and sizes (ink/tool-style.ts, #34).
  *
  *   .inkedmark-surface          position:relative, clips
  *     .inkedmark-paper-bg       visible page behind the ink
@@ -49,6 +49,7 @@ import {
 import { SpatialIndex } from "../canvas/spatial-index";
 import { anchorScrollDelta, clampScale } from "../canvas/zoom";
 import { StrokeBuilder, type StrokeBuilderOptions, mapPressure } from "../ink/stroke-builder";
+import { toolStyle } from "../ink/tool-style";
 import {
   type Bounds,
   type InkDocument,
@@ -535,8 +536,7 @@ export class InkSurface {
   private currentStyle(): StrokeStyle {
     const tool = this.strokeTool();
     return {
-      color: this.toolState.color,
-      size: tool === "highlighter" ? this.toolState.highlighterSize : this.toolState.size,
+      ...toolStyle(this.toolState, tool),
       tool,
       usePressure: this.toolState.pressureEnabled,
     };
@@ -743,11 +743,11 @@ export class InkSurface {
     // A single retained point is a valid dot; only drop truly empty strokes.
     if (builder.length < 1) return;
 
+    const tool = this.strokeTool();
     const stroke: Stroke = {
       id: `s${++this.strokeSeq}`,
-      color: this.toolState.color,
-      size: this.toolState.size,
-      tool: this.strokeTool(),
+      ...toolStyle(this.toolState, tool),
+      tool,
       pts: builder.points(),
     };
     // Record via the command stack (applies the add), then paint just this

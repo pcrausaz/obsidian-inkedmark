@@ -8,17 +8,14 @@
 
 import { setIcon } from "obsidian";
 import { ICON_GUIDES } from "../icons";
+import { type ToolStyleState, setToolStyle, toolStyle } from "../ink/tool-style";
 
 /** Tools selectable in the toolbar. Only pen/highlighter produce strokes. */
 export type ActiveTool = "pen" | "highlighter" | "eraser" | "select";
 
-export interface ToolbarState {
+/** Pen and highlighter styles are kept apart (#34; see ink/tool-style.ts). */
+export interface ToolbarState extends ToolStyleState {
   tool: ActiveTool;
-  color: string;
-  /** Pen stroke size (also what the size buttons show for eraser/select). */
-  size: number;
-  /** Highlighter stroke size — kept apart from the pen's (#34). */
-  highlighterSize: number;
   pressureEnabled: boolean;
   /** Paper guides shown (a persisted preference, mirrored here for the button). */
   guidesVisible: boolean;
@@ -80,7 +77,8 @@ export class Toolbar {
       swatch.style.background = color;
       swatch.setAttribute("aria-label", color);
       swatch.addEventListener("click", () => {
-        this.state.color = color;
+        // Swatches and size buttons edit the style of the tool in hand.
+        setToolStyle(this.state, this.state.tool, { color });
         this.callbacks.onColorChange(color);
         this.syncActive();
       });
@@ -92,9 +90,7 @@ export class Toolbar {
       const button = this.root.createEl("button", { text: String(size) });
       button.setAttribute("aria-label", `Size ${size}`);
       button.addEventListener("click", () => {
-        // The size buttons edit the size of the tool in hand.
-        if (this.state.tool === "highlighter") this.state.highlighterSize = size;
-        else this.state.size = size;
+        setToolStyle(this.state, this.state.tool, { size });
         this.callbacks.onSizeChange(size);
         this.syncActive();
       });
@@ -170,13 +166,12 @@ export class Toolbar {
     for (const [tool, button] of this.toolButtons) {
       button.toggleClass("is-active", tool === this.state.tool);
     }
+    const style = toolStyle(this.state, this.state.tool);
     for (const [color, swatch] of this.swatches) {
-      swatch.toggleClass("is-active", color === this.state.color);
+      swatch.toggleClass("is-active", color === style.color);
     }
-    const activeSize =
-      this.state.tool === "highlighter" ? this.state.highlighterSize : this.state.size;
     for (const [size, button] of this.sizeButtons) {
-      button.toggleClass("is-active", size === activeSize);
+      button.toggleClass("is-active", size === style.size);
     }
     this.pressureButton.toggleClass("is-active", this.state.pressureEnabled);
     this.guidesButton.toggleClass("is-active", this.state.guidesVisible);
