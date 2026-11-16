@@ -46,7 +46,8 @@ and Obsidian's search and graph see all of it through a first-class text layer.
 | Eraser      | `E` | Drag across strokes; one undo step per gesture                 |
 | Select      | `V` | Drag a box to select; drag inside it to move; `Delete` removes |
 
-Plus: color swatches (add your own in settings), stroke sizes, a pressure
+Plus: color swatches (add your own in settings), stroke sizes (the pen and the
+highlighter each remember their own), a pressure
 toggle, undo/redo (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`), clear, zoom
 out / fit / in, and a paper-guides toggle (below). The right side of the
 toolbar shows version, build, stroke count, and zoom.
@@ -56,8 +57,14 @@ or highlight without touching the toolbar; release it and you're back to the
 selected tool. A second side button highlights by default. Both are set in
 Settings → **Pen button** / **Second pen button**. A pen's eraser end always
 erases. iPadOS doesn't expose Apple Pencil's double-tap or squeeze to plugins,
-so on iPad these settings don't appear. On Android only the second button is reported while the pen
-touches the screen, so press the first button _before_ the pen touches down.
+so on iPad these settings don't appear.
+
+**On Android the first button works differently:** Android's web view keeps a
+pen that touches down with that button held for its own text selection, so
+InkedMark never sees the stroke. Instead, **click** the button while the pen
+hovers above the screen to switch to its tool (eraser by default; the toolbar
+shows it), write, and click again to switch back. A second side button, if
+your pen has one, can be held while writing as on other platforms.
 
 ### Paper guides
 
@@ -171,6 +178,8 @@ once. Good to know:
 - **Closing saves.** _Done_, the ✕ button, or `Esc` write the strokes back into
   the block; **Discard changes** throws the session away (after asking, if you
   changed anything). The note updates as soon as the editor closes.
+- **Deleting a block.** **Delete block** in the editor's footer removes the
+  whole block — drawing and caption — from the note, after asking.
 - **The caption is the block's text layer.** Open the text panel (toolbar `📄`)
   to type it, or press the scan button to have the recognition provider fill
   it in (collapsed to a single line). With **Recognize automatically** on, this
@@ -219,8 +228,8 @@ one-time reminder and a settings note on iPad.
 - **Strokes go missing on iPad** → turn off Scribble (above).
 - **Diagnosing input problems** → enable **Input debug overlay** (settings →
   Support and diagnostics, or the command). It shows the raw event stream,
-  timing gaps, and stroke counts — include a screenshot of it when reporting
-  input bugs.
+  timing gaps, stroke counts and pen-button state, in ink notes and in the
+  inline-block editor — include a screenshot of it when reporting input bugs.
 - **Ink looks corrupted** → try turning off **Desynchronized canvas** in
   settings (some WebKit versions are flaky with it).
 - **Not sure which build you're running** → the toolbar's right side shows the

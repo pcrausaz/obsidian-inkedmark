@@ -326,11 +326,38 @@ src/
   Android maps `BUTTON_STYLUS_PRIMARY` to the **left** bit — identical to tip
   contact — so the primary barrel is only detectable while hovering
   (`hoverBarrelHeld`); `BUTTON_STYLUS_SECONDARY` maps to the right bit. Verified
-  in Chromium source (`event_flags_android.cc`, `pointer_event_factory.cc`), not
-  yet on Android hardware; the debug HUD shows `buttons` (`b=`, `hv<n>`) for
-  field reports. iPadOS exposes no Pencil buttons to web content, so the
-  settings are hidden there. The surface swallows `contextmenu` (barrel
-  right-clicks).
+  in Chromium source (`event_flags_android.cc`, `pointer_event_factory.cc`).
+  iPadOS exposes no Pencil buttons to web content, so the settings are hidden
+  there. The surface swallows `contextmenu` (barrel right-clicks).
+  - **Android primary button = hover click, not hold (1.5.2).** A field report
+    (XP-Pen Magic Note Pad, #31) showed the hold never reached the page. Cause,
+    in Chromium source: `RenderWidgetHostViewAndroid::OnTouchEvent` offers
+    every touch to `StylusTextSelector` *before* the renderer, and it claims
+    the whole touch stream when a stylus touches down with exactly
+    `BUTTON_STYLUS_PRIMARY` held — no `pointerdown` ever fires, and a page
+    can't opt out. Hover events still carry the button (`hv1`), so on Android
+    a quick press-and-release while hovering (≤ 800 ms, no pen-down between;
+    `HoverClickDetector`) toggles between the selected tool and the button's
+    tool, shown in the toolbar; clicking again or picking a tool by hand
+    ends it. Hold-at-down detection stays for devices whose firmware reports
+    the button differently. The second button is unaffected (the selector
+    only matches the primary button alone).
+  - **Debug HUD** shows `buttons` (`b=`, `hv<n>`), the button a stroke was
+    attributed to (`dn:<button>`, `btn=`), the current tool, pen hover exits
+    (`lv`), context-menu events (`ctx<n>`), hover clicks (`click→<tool>`) and
+    whether Android mapping is active — enough to diagnose a stylus from one
+    screenshot. It paints as soon as it is enabled (an empty HUD looked like
+    "not working") and is available in the inline-block editor too.
+- **Per-tool stroke size (#34, 1.5.2):** pen and highlighter keep separate
+  sizes (`ToolbarState.size` / `highlighterSize`, defaults from
+  `defaultSize` / `defaultHighlighterSize`, highlighter 12). The size buttons
+  show and edit the size of the tool in hand; eraser/select show the pen's.
+  A highlighter picked by a pen button uses the highlighter size. Colors stay
+  shared between tools (a per-tool color was suggested in #34 but not done).
+- **Settings synced from another device** (`onExternalSettingsChange`, 1.5.2):
+  the plugin reloads data.json and reapplies the debug overlay and paper
+  guides to open views, so a session never keeps — and later saves back —
+  stale settings.
 
 ### 5.3 Undo/redo (delta-based)
 Command pattern (`model/commands.ts` + `history.ts`). Each user action pushes a

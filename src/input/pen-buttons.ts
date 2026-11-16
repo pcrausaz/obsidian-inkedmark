@@ -9,8 +9,15 @@
  *   bit 2 (right) and a second barrel button bit 4 (middle).
  * - **Android** (Chromium WebView): `BUTTON_STYLUS_PRIMARY` is mapped to the
  *   *left* bit — the same bit as tip contact — so the primary barrel button
- *   can only be told apart while the pen hovers. `BUTTON_STYLUS_SECONDARY`
- *   maps to the right bit. The eraser tool type behaves as on desktop.
+ *   can only be told apart while the pen hovers. Worse, a pen touching down
+ *   with *only* that button held is claimed by Chromium's stylus text
+ *   selection (`StylusTextSelector`, consulted in
+ *   `RenderWidgetHostViewAndroid::OnTouchEvent` before the page): the whole
+ *   touch stream is swallowed and the page never sees a `pointerdown` (#31).
+ *   So on Android the primary button works as a *click while hovering* that
+ *   toggles its tool (`HoverClickDetector`), not as hold-to-use.
+ *   `BUTTON_STYLUS_SECONDARY` maps to the right bit and reaches the page
+ *   normally. The eraser tool type behaves as on desktop.
  * - **iPadOS**: Apple Pencil buttons/squeeze never reach web content; nothing
  *   here ever fires.
  */
@@ -85,4 +92,67 @@ export function penButtonTool(
   if (button === "eraser") return "eraser";
   const action = button === "barrel" ? barrelAction : barrel2Action;
   return action === "none" ? null : action;
+}
+
+/**
+ * Android: how long a barrel press may last, while hovering, to count as a
+ * click. Longer presses are someone holding the button to write, which
+ * Chromium swallows (see module doc) — toggling then would surprise.
+ */
+export const HOVER_CLICK_MAX_MS = 800;
+
+/**
+ * Android: spots a barrel-button *click* (press + release) made while the pen
+ * hovers. Feed it every hover sample and every pen-down; `hover` returns true
+ * on the release that completes a click. A pen-down in between (the button was
+ * held while writing, on a device that delivered the stroke) cancels it.
+ */
+export class HoverClickDetector {
+  private pressedAt: number | null = null;
+  private held = false;
+
+  /** A hovering pen's `buttons` at time `t` (ms). True when a click just completed. */
+  hover(buttons: number, t: number): boolean {
+    const held = hoverBarrelHeld(buttons);
+    const wasHeld = this.held;
+    this.held = held;
+    if (held && !wasHeld) {
+      this.pressedAt = t;
+      return false;
+    }
+    if (!held && wasHeld && this.pressedAt !== null) {
+      const quick = t - this.pressedAt <= HOVER_CLICK_MAX_MS;
+      this.pressedAt = null;
+      return quick;
+    }
+    return false;
+  }
+
+  /** The pen touched down (a press spanning a stroke is not a click). */
+  down(): void {
+    this.pressedAt = null;
+  }
+
+  /** The pen left hover range: its button state is unknown until it returns. */
+  reset(): void {
+    this.pressedAt = null;
+    this.held = false;
+  }
+}
+
+/** The toolbar's tools (mirrors `ActiveTool`; kept here so this module stays pure). */
+export type SelectableTool = "pen" | "highlighter" | "eraser" | "select";
+
+/**
+ * Android hover click: switch from `current` to the button's tool, or — when
+ * it is already selected — back to `previous` (the tool before the last
+ * toggle; pen if unknown). Returns the new tool and what to remember.
+ */
+export function toggledTool(
+  current: SelectableTool,
+  buttonTool: "eraser" | "highlighter",
+  previous: SelectableTool | null,
+): { tool: SelectableTool; previous: SelectableTool | null } {
+  if (current === buttonTool) return { tool: previous ?? "pen", previous: null };
+  return { tool: buttonTool, previous: current };
 }

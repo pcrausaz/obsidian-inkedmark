@@ -15,7 +15,10 @@ export type ActiveTool = "pen" | "highlighter" | "eraser" | "select";
 export interface ToolbarState {
   tool: ActiveTool;
   color: string;
+  /** Pen stroke size (also what the size buttons show for eraser/select). */
   size: number;
+  /** Highlighter stroke size — kept apart from the pen's (#34). */
+  highlighterSize: number;
   pressureEnabled: boolean;
   /** Paper guides shown (a persisted preference, mirrored here for the button). */
   guidesVisible: boolean;
@@ -89,7 +92,9 @@ export class Toolbar {
       const button = this.root.createEl("button", { text: String(size) });
       button.setAttribute("aria-label", `Size ${size}`);
       button.addEventListener("click", () => {
-        this.state.size = size;
+        // The size buttons edit the size of the tool in hand.
+        if (this.state.tool === "highlighter") this.state.highlighterSize = size;
+        else this.state.size = size;
         this.callbacks.onSizeChange(size);
         this.syncActive();
       });
@@ -168,8 +173,10 @@ export class Toolbar {
     for (const [color, swatch] of this.swatches) {
       swatch.toggleClass("is-active", color === this.state.color);
     }
+    const activeSize =
+      this.state.tool === "highlighter" ? this.state.highlighterSize : this.state.size;
     for (const [size, button] of this.sizeButtons) {
-      button.toggleClass("is-active", size === this.state.size);
+      button.toggleClass("is-active", size === activeSize);
     }
     this.pressureButton.toggleClass("is-active", this.state.pressureEnabled);
     this.guidesButton.toggleClass("is-active", this.state.guidesVisible);

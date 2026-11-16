@@ -4,8 +4,10 @@ import {
   buildInlineBlock,
   findInlineBlock,
   inlineBlockRanges,
+  inlineBlockRemoval,
   locateInlineBlock,
   parseInlineBlock,
+  removeInlineBlock,
   replaceInlineBlock,
   updateInlineBlockSource,
 } from "../../src/model/inline-block";
@@ -146,5 +148,56 @@ describe("locateInlineBlock", () => {
   it("returns null without a payload or a match", () => {
     expect(locateInlineBlock(note, "caption: only")).toBeNull();
     expect(locateInlineBlock(note, "v1:zzz")).toBeNull();
+  });
+});
+
+describe("removeInlineBlock", () => {
+  const block = "```inkedmark\ncaption: x\nv1:abc\n```";
+  const remove = (note: string): string => {
+    const [range] = inlineBlockRanges(note);
+    return removeInlineBlock(note, range);
+  };
+
+  it("removes a block between paragraphs, keeping one blank line", () => {
+    expect(remove(`before\n\n${block}\n\nafter\n`)).toBe("before\n\nafter\n");
+  });
+
+  it("removes a block hugging its neighbours without merging them", () => {
+    expect(remove(`before\n${block}\nafter\n`)).toBe("before\nafter\n");
+  });
+
+  it("keeps a blank line that separates the block from text only after it", () => {
+    expect(remove(`before\n${block}\n\nafter`)).toBe("before\n\nafter");
+  });
+
+  it("removes a block at the start of the note with its blank line", () => {
+    expect(remove(`${block}\n\nafter\n`)).toBe("after\n");
+  });
+
+  it("removes a block ending the note (trailing newline)", () => {
+    expect(remove(`before\n${block}\n`)).toBe("before\n");
+    expect(remove(`before\n\n${block}\n`)).toBe("before\n");
+  });
+
+  it("removes a block ending the note (no trailing newline)", () => {
+    expect(remove(`before\n\n${block}`)).toBe("before\n");
+  });
+
+  it("removes the only content of a note", () => {
+    expect(remove(`${block}\n`)).toBe("");
+    expect(remove(block)).toBe("");
+  });
+
+  it("leaves other blocks alone", () => {
+    const note = `${block}\n\n${block.replace("abc", "def")}\n`;
+    const ranges = inlineBlockRanges(note);
+    expect(removeInlineBlock(note, ranges[1])).toBe(`${block}\n`);
+  });
+
+  it("offsets cover exactly what is removed", () => {
+    const note = `a\n\n${block}\n\nb`;
+    const [range] = inlineBlockRanges(note);
+    const { start, end } = inlineBlockRemoval(note, range);
+    expect(note.slice(start, end)).toBe(`${block}\n\n`);
   });
 });

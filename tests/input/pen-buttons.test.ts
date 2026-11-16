@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  HOVER_CLICK_MAX_MS,
+  HoverClickDetector,
   hoverBarrelHeld,
   normalizePenButtonAction,
   penButtonAtDown,
   penButtonTool,
+  toggledTool,
 } from "../../src/input/pen-buttons";
 
 describe("penButtonAtDown — standard mapping", () => {
@@ -78,5 +81,63 @@ describe("normalizePenButtonAction", () => {
     expect(normalizePenButtonAction("none", "eraser")).toBe("none");
     expect(normalizePenButtonAction("select", "eraser")).toBe("eraser");
     expect(normalizePenButtonAction(undefined, "highlighter")).toBe("highlighter");
+  });
+});
+
+describe("HoverClickDetector (Android)", () => {
+  it("a quick press + release while hovering is a click", () => {
+    const d = new HoverClickDetector();
+    expect(d.hover(0, 0)).toBe(false);
+    expect(d.hover(1, 100)).toBe(false);
+    expect(d.hover(1, 150)).toBe(false);
+    expect(d.hover(0, 300)).toBe(true);
+    expect(d.hover(0, 350)).toBe(false);
+  });
+
+  it("a long press is not a click", () => {
+    const d = new HoverClickDetector();
+    d.hover(1, 0);
+    expect(d.hover(0, HOVER_CLICK_MAX_MS + 1)).toBe(false);
+  });
+
+  it("a pen-down during the press cancels the click", () => {
+    const d = new HoverClickDetector();
+    d.hover(1, 0);
+    d.down();
+    expect(d.hover(0, 200)).toBe(false);
+  });
+
+  it("leaving hover range forgets the press", () => {
+    const d = new HoverClickDetector();
+    d.hover(1, 0);
+    d.reset();
+    expect(d.hover(0, 100)).toBe(false);
+  });
+
+  it("a release never seen pressed is not a click", () => {
+    const d = new HoverClickDetector();
+    expect(d.hover(0, 0)).toBe(false);
+    expect(d.hover(0, 10)).toBe(false);
+  });
+});
+
+describe("toggledTool", () => {
+  it("switches to the button tool, remembering the current one", () => {
+    expect(toggledTool("pen", "eraser", null)).toEqual({ tool: "eraser", previous: "pen" });
+    expect(toggledTool("highlighter", "eraser", null)).toEqual({
+      tool: "eraser",
+      previous: "highlighter",
+    });
+  });
+
+  it("switches back when the button tool is selected", () => {
+    expect(toggledTool("eraser", "eraser", "highlighter")).toEqual({
+      tool: "highlighter",
+      previous: null,
+    });
+  });
+
+  it("falls back to the pen when nothing was remembered", () => {
+    expect(toggledTool("eraser", "eraser", null)).toEqual({ tool: "pen", previous: null });
   });
 });

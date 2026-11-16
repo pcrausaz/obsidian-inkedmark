@@ -48,6 +48,8 @@ export interface InkedMarkSettings {
   customColors: string[];
   defaultColor: string;
   defaultSize: number;
+  /** Highlighter stroke size selected when a note opens (separate from the pen's, #34). */
+  defaultHighlighterSize: number;
   highlighterAlpha: number;
   /** Tool while the stylus barrel button is held (issue #31). */
   penButtonAction: PenButtonAction;
@@ -98,6 +100,7 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   customColors: [],
   defaultColor: PALETTE[0],
   defaultSize: SIZES[1],
+  defaultHighlighterSize: SIZES[4],
   highlighterAlpha: DEFAULT_HIGHLIGHTER_ALPHA,
   penButtonAction: "eraser",
   penButton2Action: "highlighter",
@@ -123,9 +126,12 @@ export const DEFAULT_SETTINGS: InkedMarkSettings = {
   trocrModel: "small",
 };
 
-const PEN_BUTTON_DESC =
-  "Tool used while you hold the stylus side button and write. The pen's eraser end always erases. " +
-  "Apple Pencil buttons are not available to plugins.";
+const PEN_BUTTON_DESC = Platform.isAndroidApp
+  ? "Tool the stylus side button switches to: click it while the pen hovers, write, click again " +
+    "to switch back (Android can't pass on strokes made while it is held). " +
+    "The pen's eraser end always erases."
+  : "Tool used while you hold the stylus side button and write. The pen's eraser end always erases. " +
+    "Apple Pencil buttons are not available to plugins.";
 const PEN_BUTTON2_DESC = "Same, for styluses with a second side button.";
 
 const TOOL_LABELS: Record<ToolId, string> = {
@@ -359,12 +365,22 @@ export class InkedMarkSettingTab extends PluginSettingTab {
         control: { type: "dropdown", key: "defaultTool", options: TOOL_LABELS },
       },
       {
-        name: "Default stroke size",
-        desc: "Stroke thickness selected when an ink note opens.",
+        name: "Default pen size",
+        desc: "Pen thickness selected when an ink note opens. The highlighter keeps its own size.",
         aliases: ["pen size", "line width"],
         control: {
           type: "dropdown",
           key: "defaultSize",
+          options: Object.fromEntries(SIZES.map((size) => [String(size), String(size)])),
+        },
+      },
+      {
+        name: "Default highlighter size",
+        desc: "Highlighter thickness selected when an ink note opens. The pen keeps its own size.",
+        aliases: ["highlighter width", "marker size"],
+        control: {
+          type: "dropdown",
+          key: "defaultHighlighterSize",
           options: Object.fromEntries(SIZES.map((size) => [String(size), String(size)])),
         },
       },
@@ -563,6 +579,8 @@ export class InkedMarkSettingTab extends PluginSettingTab {
     switch (key) {
       case "defaultSize":
         return String(settings.defaultSize);
+      case "defaultHighlighterSize":
+        return String(settings.defaultHighlighterSize);
       case "highlighterAlpha":
         return Math.round(settings.highlighterAlpha * 100);
       case "customColors":
@@ -577,6 +595,9 @@ export class InkedMarkSettingTab extends PluginSettingTab {
     switch (key) {
       case "defaultSize":
         settings.defaultSize = Number(value);
+        break;
+      case "defaultHighlighterSize":
+        settings.defaultHighlighterSize = Number(value);
         break;
       case "highlighterAlpha":
         settings.highlighterAlpha = (value as number) / 100;
@@ -767,14 +788,27 @@ export class InkedMarkSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Default stroke size")
-      .setDesc("Stroke thickness selected when an ink note opens.")
+      .setName("Default pen size")
+      .setDesc("Pen thickness selected when an ink note opens. The highlighter keeps its own size.")
       .addDropdown((dropdown) => {
         for (const size of SIZES) dropdown.addOption(String(size), String(size));
         dropdown.setValue(String(this.plugin.settings.defaultSize)).onChange(async (value) => {
           this.plugin.settings.defaultSize = Number(value);
           await this.plugin.saveSettings();
         });
+      });
+
+    new Setting(containerEl)
+      .setName("Default highlighter size")
+      .setDesc("Highlighter thickness selected when an ink note opens. The pen keeps its own size.")
+      .addDropdown((dropdown) => {
+        for (const size of SIZES) dropdown.addOption(String(size), String(size));
+        dropdown
+          .setValue(String(this.plugin.settings.defaultHighlighterSize))
+          .onChange(async (value) => {
+            this.plugin.settings.defaultHighlighterSize = Number(value);
+            await this.plugin.saveSettings();
+          });
       });
 
     new Setting(containerEl)

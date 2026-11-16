@@ -10,7 +10,10 @@
  * Layout (all inside the host element):
  *
  * Each pen/mouse gesture fixes its tool at pointer-down: the toolbar's tool,
- * or a temporary one picked by a held stylus button (`penButtonTool`).
+ * or a temporary one picked by a held stylus button (`penButtonTool`). On
+ * Android the primary button is clicked while hovering instead, toggling the
+ * selected tool (see input/pen-buttons.ts). Pen and highlighter keep separate
+ * sizes (`ToolbarState.size` / `highlighterSize`, #34).
  *
  *   .inkedmark-surface          position:relative, clips
  *     .inkedmark-paper-bg       visible page behind the ink
@@ -34,7 +37,7 @@ import {
   PAPER_GROWTH_MARGIN,
 } from "../constants";
 import { type PaperGuide } from "../canvas/guides";
-import type { PenButton } from "../input/pen-buttons";
+import { type PenButton, toggledTool } from "../input/pen-buttons";
 import { Renderer, type StrokeStyle } from "../canvas/renderer";
 import type { ViewportState } from "../canvas/viewport";
 import {
@@ -159,6 +162,8 @@ export class InkSurface {
 
   /** Tool of the gesture in progress (fixed at pointer-down); null when none or refused. */
   private gestureTool: ActiveTool | null = null;
+  /** Android hover-click toggle: the tool to return to on the next click. */
+  private toggleReturn: ActiveTool | null = null;
 
   // Wet-render throttle: coalesce many pointermoves into one draw per frame.
   private wetFrame = 0;
@@ -182,6 +187,7 @@ export class InkSurface {
   private hudSumDown = 0;
   private hudSumUp = 0;
   private hudSumCancel = 0;
+  private hudPenButton = "-";
 
   /**
    * @param host      element the surface is appended to (a flex column host
@@ -211,6 +217,9 @@ export class InkSurface {
     this.paperEl = this.scrollEl.createDiv({ cls: "inkedmark-paper" });
     this.hudEl = this.surfaceEl.createDiv({ cls: "inkedmark-hud" });
     this.hudEl.style.display = this.debug ? "" : "none";
+    // Paint it now, not on the first pointer event: an empty HUD is a speck
+    // that reads as "overlay not working" until something is drawn.
+    this.renderHud();
 
     this.renderer = new Renderer(dryCanvas, wetCanvas, options.desynchronizedCanvas);
     this.renderer.highlighterAlpha = options.highlighterAlpha;
@@ -336,7 +345,23 @@ export class InkSurface {
 
   setTool(tool: ActiveTool): void {
     this.toolState.tool = tool;
+    // A tool picked by hand ends any hover-click toggle.
+    this.toggleReturn = null;
     if (tool !== "select") this.clearSelection();
+  }
+
+  /**
+   * Android barrel click while hovering: toggle between the selected tool and
+   * the button's tool (the button can't be held while writing there).
+   */
+  private onHoverClick(): void {
+    const buttonTool = this.options.penButtonTool("barrel");
+    if (buttonTool !== "eraser" && buttonTool !== "highlighter") return;
+    const next = toggledTool(this.toolState.tool, buttonTool, this.toggleReturn);
+    this.toolState.tool = next.tool;
+    this.toggleReturn = next.previous;
+    if (next.tool !== "select") this.clearSelection();
+    this.callbacks.onToolChange?.(next.tool);
   }
 
   /** Enable/disable the on-screen pointer-event overlay (also resets counters). */
@@ -508,10 +533,11 @@ export class InkSurface {
   }
 
   private currentStyle(): StrokeStyle {
+    const tool = this.strokeTool();
     return {
       color: this.toolState.color,
-      size: this.toolState.size,
-      tool: this.strokeTool(),
+      size: tool === "highlighter" ? this.toolState.highlighterSize : this.toolState.size,
+      tool,
       usePressure: this.toolState.pressureEnabled,
     };
   }
@@ -601,6 +627,7 @@ export class InkSurface {
       this.scrollEl.scrollTop -= info.dyCss;
       this.applyZoom(this.scale * info.scaleFactor, info.centerX, info.centerY);
     },
+    onHoverClick: () => this.onHoverClick(),
     onDebug: (record) => this.onDebug(record),
   };
 
@@ -620,7 +647,8 @@ export class InkSurface {
         this.hudMaxGap = 0;
         this.hudMaxP = 0;
         this.hudLastMoveT = record.timeStamp;
-        this.pushHud("dn");
+        this.hudPenButton = record.penButton ?? "-";
+        this.pushHud(record.penButton ? `dn:${record.penButton}` : "dn");
         break;
       case "move": {
         this.hudMoves += 1;
@@ -646,6 +674,15 @@ export class InkSurface {
         // Logged only when the hovering pen's buttons change (barrel diagnostics).
         this.pushHud(`hv${record.buttons}`);
         break;
+      case "leave":
+        this.pushHud("lv");
+        break;
+      case "menu":
+        this.pushHud(`ctx${record.buttons}`);
+        break;
+      case "click":
+        this.pushHud(`click→${this.toolState.tool}`);
+        break;
     }
     this.scheduleHud();
   }
@@ -667,10 +704,12 @@ export class InkSurface {
     if (!this.debug) return;
     const seq = this.hudLog.map((t) => (t.k === "m" ? `m·${t.n}` : t.k)).join(" ");
     this.hudEl.setText(
-      `${seq}\n` +
+      `${seq || "waiting for pen/touch input"}\n` +
         `cur mv=${this.hudMoves} pts=${this.hudPts} gap=${Math.round(this.hudMaxGap)}ms maxP=${this.hudMaxP.toFixed(2)}\n` +
         `Σ dn=${this.hudSumDown} up=${this.hudSumUp} cx=${this.hudSumCancel} commit=${strokeCount(this.doc)}\n` +
-        `${this.hudPointerType || "-"} p=${this.hudPressure.toFixed(2)} b=${this.hudButtons}`,
+        `${this.hudPointerType || "-"} p=${this.hudPressure.toFixed(2)} b=${this.hudButtons} ` +
+        `btn=${this.hudPenButton} tool=${this.toolState.tool}` +
+        (this.options.androidStylus ? " android" : ""),
     );
   }
 

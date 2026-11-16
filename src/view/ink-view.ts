@@ -82,6 +82,7 @@ export class InkView extends TextFileView {
       tool: plugin.settings.defaultTool,
       color: plugin.settings.defaultColor,
       size: plugin.settings.defaultSize,
+      highlighterSize: plugin.settings.defaultHighlighterSize,
       pressureEnabled: plugin.settings.pressureEnabled,
       guidesVisible: plugin.settings.paperGuideVisible,
     };

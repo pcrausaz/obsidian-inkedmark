@@ -164,3 +164,45 @@ export function replaceInlineBlock(note: string, range: BlockRange, inner: strin
   lines.splice(range.lineStart + 1, range.lineEnd - range.lineStart - 1, ...inner.split("\n"));
   return lines.join("\n");
 }
+
+/**
+ * Character offsets `[start, end)` that delete the block at `range` from
+ * `note`: the fences and everything between, plus one blank line next to it
+ * when the block sat between blank lines (or ended the note after one), so no
+ * double blank line is left behind.
+ */
+export function inlineBlockRemoval(
+  note: string,
+  range: BlockRange,
+): { start: number; end: number } {
+  const lines = note.split("\n");
+  const offset = (line: number): number => {
+    let at = 0;
+    for (let i = 0; i < line; i++) at += lines[i].length + 1;
+    return at;
+  };
+  const blankBefore = range.lineStart > 0 && lines[range.lineStart - 1].trim() === "";
+  // A trailing newline splits into a final "" — that is the note's end, not a line.
+  const lineCount = note.endsWith("\n") ? lines.length - 1 : lines.length;
+  const after = range.lineEnd + 1;
+
+  if (after < lineCount) {
+    const blankAfter = lines[after].trim() === "";
+    const end = blankAfter && (range.lineStart === 0 || blankBefore) ? after + 1 : after;
+    return { start: offset(range.lineStart), end: offset(end) };
+  }
+  // The block ends the note.
+  if (note.endsWith("\n")) {
+    const start = blankBefore ? offset(range.lineStart - 1) : offset(range.lineStart);
+    return { start, end: note.length };
+  }
+  // No final newline: take the line break before the block instead.
+  const start = range.lineStart > 0 ? offset(range.lineStart) - 1 : 0;
+  return { start, end: note.length };
+}
+
+/** `note` without the block at `range` (see `inlineBlockRemoval`). */
+export function removeInlineBlock(note: string, range: BlockRange): string {
+  const { start, end } = inlineBlockRemoval(note, range);
+  return note.slice(0, start) + note.slice(end);
+}

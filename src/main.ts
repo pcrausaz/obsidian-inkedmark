@@ -280,6 +280,22 @@ export default class InkedMarkPlugin extends Plugin {
   }
 
   /**
+   * Obsidian calls this when data.json changed underneath us — typically a
+   * sync from another device. Without it, this session keeps stale settings
+   * (e.g. the debug overlay shown as on but not showing) and its next save
+   * overwrites the other device's change.
+   */
+  override async onExternalSettingsChange(): Promise<void> {
+    await this.loadSettings();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INK)) {
+      if (!(leaf.view instanceof InkView)) continue;
+      leaf.view.setDebug(this.settings.debugHud);
+      leaf.view.applyPaperGuide();
+    }
+    if (this.settingTab?.containerEl.isConnected) this.settingTab.refresh();
+  }
+
+  /**
    * One-time iPad notice: iPadOS Scribble intercepts fast Pencil strokes before
    * the web view sees them. We can't disable it from a plugin (it's a native
    * system feature), so we point the user at the setting. Shown once, on first

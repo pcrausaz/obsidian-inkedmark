@@ -5,6 +5,33 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
+## [Unreleased]
+
+### Added
+
+- **Separate pen and highlighter sizes** (#34): the pen and the highlighter
+  each keep their own stroke size. Pick a size with the highlighter selected
+  and the pen keeps its own. Set the starting sizes in Settings → _Default pen
+  size_ / _Default highlighter size_ (the highlighter now starts at 12).
+- **Delete an inline block** (#33): the inline handwriting editor has a
+  _Delete block_ button that removes the whole block from the note, after
+  asking.
+
+### Fixed
+
+- **First stylus button on Android** (#31): holding it while writing never
+  worked, because Android's web view takes over a pen that touches down with
+  that button held, for its own text selection, and InkedMark never sees the
+  stroke. Now you **click** the button while the pen hovers above the screen
+  to switch to its tool (eraser by default), and click again to switch back.
+  The toolbar shows which tool is active. A second side button still works
+  while held.
+- **Input debug overlay**: it now appears as soon as it's on, not only after
+  the first stroke, and it works in the inline-block editor too. It also shows
+  more about stylus buttons, to help diagnose pens we can't test.
+- **Settings synced from another device** now take effect right away, instead
+  of being ignored (and later overwritten) by a running session.
+
 ## [1.5.1] - 2026-11-06
 
 Maintenance release: nothing changes in how InkedMark works. It republishes

@@ -31,8 +31,10 @@ import { type Bounds, type InkDocument, documentBounds, emptyDocument } from "..
 import {
   type BlockRange,
   blockInner,
+  inlineBlockRemoval,
   locateInlineBlock,
   parseInlineBlock,
+  removeInlineBlock,
   replaceInlineBlock,
   updateInlineBlockSource,
 } from "../model/inline-block";
@@ -199,6 +201,9 @@ function renderInlineBlock(
  * Otherwise, or once that note is closed, the file at `sourcePath` is
  * rewritten directly. A null `sourcePath` (an editor that isn't a note view)
  * always writes through `editor`.
+ *
+ * A result with `remove` deletes the block from the note (#33); the session
+ * writes nothing after that.
  */
 export function inlineBlockSaver(
   plugin: InkedMarkPlugin,
@@ -209,16 +214,35 @@ export function inlineBlockSaver(
 ): (result: InlineInkResult) => void {
   let current = source;
   let currentHint = hint;
+  let removed = false;
   let chain: Promise<void> = Promise.resolve();
   return (result) => {
     chain = chain.then(async () => {
+      if (removed) return;
+      const viaEditor =
+        editor !== undefined &&
+        (sourcePath === null || editorStillOpen(plugin, editor, sourcePath));
+      if (result.remove) {
+        const ok = viaEditor
+          ? removeViaEditor(editor, current, currentHint)
+          : sourcePath !== null && (await removeViaFile(plugin, sourcePath, current, currentHint));
+        if (ok) removed = true;
+        else {
+          new Notice(
+            "InkedMark: couldn't find the handwriting block in the note (was it edited meanwhile?). " +
+              "Nothing was deleted.",
+            8000,
+          );
+        }
+        return;
+      }
       const payload = encodeDocument(result.doc);
       // Merge into the block as it is now: a caption the session didn't touch
       // (`null`) keeps whatever the note holds.
       const update = (inner: string): string =>
         updateInlineBlockSource(inner, payload, result.caption);
       const written =
-        editor && (sourcePath === null || editorStillOpen(plugin, editor, sourcePath))
+        viaEditor && editor
           ? writeViaEditor(editor, current, currentHint, update)
           : sourcePath !== null
             ? await writeViaFile(plugin, sourcePath, current, currentHint, update)
@@ -272,6 +296,38 @@ function writeViaEditor(
     { line: range.lineEnd, ch: 0 },
   );
   return { lineStart: range.lineStart, inner };
+}
+
+function removeViaEditor(
+  editor: Editor | undefined,
+  source: string,
+  hint: BlockRange | undefined,
+): boolean {
+  if (!editor) return false;
+  const text = editor.getValue();
+  const range = locateInlineBlock(text, source, hint);
+  if (!range) return false;
+  const { start, end } = inlineBlockRemoval(text, range);
+  editor.replaceRange("", editor.offsetToPos(start), editor.offsetToPos(end));
+  return true;
+}
+
+async function removeViaFile(
+  plugin: InkedMarkPlugin,
+  sourcePath: string,
+  source: string,
+  hint: BlockRange | undefined,
+): Promise<boolean> {
+  const file = plugin.app.vault.getFileByPath(sourcePath);
+  if (!file) return false;
+  let removed = false;
+  await plugin.app.vault.process(file, (data) => {
+    const range = locateInlineBlock(data, source, hint);
+    if (!range) return data;
+    removed = true;
+    return removeInlineBlock(data, range);
+  });
+  return removed;
 }
 
 async function writeViaFile(

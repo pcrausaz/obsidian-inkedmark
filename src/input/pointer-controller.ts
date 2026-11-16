@@ -15,7 +15,12 @@
 
 import type { Vec2 } from "../canvas/viewport";
 import { PalmRejection, kindOf } from "./palm-rejection";
-import { type PenButton, hoverBarrelHeld, penButtonAtDown } from "./pen-buttons";
+import {
+  HoverClickDetector,
+  type PenButton,
+  hoverBarrelHeld,
+  penButtonAtDown,
+} from "./pen-buttons";
 
 export interface PointerSample {
   x: number;
@@ -25,7 +30,13 @@ export interface PointerSample {
   tiltY: number;
 }
 
-export type PointerDebugType = "down" | "move" | "up" | "cancel" | "hover";
+/**
+ * `leave`: pen left hover range; `menu`: a context-menu event reached the
+ * surface (Android stylus button context click); `click`: an Android barrel
+ * click while hovering (tool toggle).
+ */
+export type PointerDebugType =
+  "down" | "move" | "up" | "cancel" | "hover" | "leave" | "menu" | "click";
 
 export interface PointerDebugRecord {
   type: PointerDebugType;
@@ -38,6 +49,8 @@ export interface PointerDebugRecord {
   coalesced: number;
   /** Event timestamp (ms, monotonic) for gap/starvation measurement. */
   timeStamp: number;
+  /** On `down`: the pen button the stroke was attributed to, if any. */
+  penButton?: PenButton | null;
 }
 
 export interface PointerControllerCallbacks {
@@ -57,6 +70,11 @@ export interface PointerControllerCallbacks {
     dxCss: number;
     dyCss: number;
   }): void;
+  /**
+   * Android: the primary barrel button was clicked while the pen hovered (it
+   * can't be held while writing there — see input/pen-buttons.ts).
+   */
+  onHoverClick?(): void;
   /** Raw drawing-pointer events, for the diagnostic HUD. */
   onDebug?(record: PointerDebugRecord): void;
 }
@@ -75,6 +93,7 @@ export class PointerController {
   /** Android: primary barrel button seen held while the pen hovered (see pen-buttons.ts). */
   private hoverBarrel = false;
   private lastHoverButtons = -1;
+  private readonly hoverClick = new HoverClickDetector();
 
   /**
    * @param android Chromium-on-Android stylus button mapping (the primary
@@ -110,7 +129,12 @@ export class PointerController {
     return { x, y, pressure: event.pressure, tiltX: event.tiltX, tiltY: event.tiltY };
   }
 
-  private emitDebug(type: PointerDebugType, event: PointerEvent, coalesced: number): void {
+  private emitDebug(
+    type: PointerDebugType,
+    event: PointerEvent,
+    coalesced: number,
+    penButton?: PenButton | null,
+  ): void {
     this.callbacks.onDebug?.({
       type,
       pointerType: event.pointerType,
@@ -119,6 +143,7 @@ export class PointerController {
       buttons: event.buttons,
       coalesced,
       timeStamp: event.timeStamp,
+      penButton,
     });
   }
 
@@ -138,11 +163,12 @@ export class PointerController {
       this.activePointerId = event.pointerId;
       this.el.setPointerCapture(event.pointerId);
       event.preventDefault();
-      this.emitDebug("down", event, 0);
       const button =
         event.pointerType === "pen"
           ? penButtonAtDown(event.buttons, this.android, this.hoverBarrel)
           : null;
+      if (event.pointerType === "pen") this.hoverClick.down();
+      this.emitDebug("down", event, 0, button);
       this.callbacks.onStart(this.toSample(event), button);
       return;
     }
@@ -209,6 +235,10 @@ export class PointerController {
       this.lastHoverButtons = event.buttons;
       this.emitDebug("hover", event, 0);
     }
+    if (this.android && this.hoverClick.hover(event.buttons, event.timeStamp)) {
+      this.callbacks.onHoverClick?.();
+      this.emitDebug("click", event, 0);
+    }
   }
 
   private readonly onPointerLeave = (event: PointerEvent): void => {
@@ -216,6 +246,8 @@ export class PointerController {
     if (event.pointerType === "pen") {
       this.hoverBarrel = false;
       this.lastHoverButtons = -1;
+      this.hoverClick.reset();
+      if (event.pointerId !== this.activePointerId) this.emitDebug("leave", event, 0);
     }
   };
 
@@ -225,6 +257,8 @@ export class PointerController {
    */
   private readonly onContextMenu = (event: Event): void => {
     event.preventDefault();
+    if (event instanceof PointerEvent) this.emitDebug("menu", event, 0);
+    else this.callbacks.onDebug?.(menuRecord(event));
   };
 
   private initPinch(): void {
@@ -283,4 +317,17 @@ function distance(a: TouchPoint, b: TouchPoint): number {
 
 function midpoint(a: TouchPoint, b: TouchPoint): TouchPoint {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+/** HUD record for a context menu delivered as a plain `MouseEvent` (older WebViews). */
+function menuRecord(event: Event): PointerDebugRecord {
+  return {
+    type: "menu",
+    pointerType: "",
+    pointerId: -1,
+    pressure: 0,
+    buttons: event instanceof MouseEvent ? event.buttons : 0,
+    coalesced: 0,
+    timeStamp: event.timeStamp,
+  };
 }

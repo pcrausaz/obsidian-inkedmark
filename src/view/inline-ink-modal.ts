@@ -10,7 +10,8 @@
  * of "Recognize handwriting" (the transcription is collapsed to one line).
  *
  * Closing (Done, ✕, Escape) saves when anything changed; "Discard changes"
- * throws the session's changes away (after confirming, when there are any).
+ * throws the session's changes away (after confirming, when there are any);
+ * "Delete block" removes the whole block from the note, after confirming (#33).
  *
  * A transcription still running when the editor closes is not lost (#29): the
  * ink is saved right away, and the caption follows in a second save once the
@@ -34,6 +35,8 @@ export interface InlineInkResult {
   doc: InkDocument;
   /** Caption text (may be empty); `null` leaves the block's caption as it is. */
   caption: string | null;
+  /** Delete the block from the note instead of saving it. */
+  remove?: boolean;
 }
 
 // `Modal` already owns `doc` (an undocumented read-only getter for the owning
@@ -53,6 +56,7 @@ export class InlineInkModal extends Modal {
   /** Bumped on every ink change, so a transcription knows if it is stale. */
   private inkVersion = 0;
   private discarded = false;
+  private removed = false;
   private closed = false;
   /** Transcriptions in progress; closing waits for them before the caption save. */
   private readonly inFlight = new Set<Promise<void>>();
@@ -77,6 +81,7 @@ export class InlineInkModal extends Modal {
       tool: settings.defaultTool === "select" ? "pen" : settings.defaultTool,
       color: settings.defaultColor,
       size: settings.defaultSize,
+      highlighterSize: settings.defaultHighlighterSize,
       pressureEnabled: settings.pressureEnabled,
       guidesVisible: settings.paperGuideVisible,
     };
@@ -121,7 +126,9 @@ export class InlineInkModal extends Modal {
         darkTheme: dark,
         paperGuide: settings.paperGuideVisible ? normalizePaperGuide(settings.paperGuide) : null,
         paperGuideSpacing: settings.paperGuideSpacing,
-        debug: false,
+        // Read once: neither the command palette nor the settings tab can
+        // toggle it while this modal is open.
+        debug: settings.debugHud,
         androidStylus: Platform.isAndroidApp,
         penButtonTool: (button) => this.plugin.penButtonTool(button),
       },
@@ -168,6 +175,11 @@ export class InlineInkModal extends Modal {
         ? "Draw with the Pencil or a finger; saved into the note when you close."
         : "Saved into the note when you close. Cmd/Ctrl+Z undoes.",
     );
+    const remove = footer.createEl("button", {
+      text: "Delete block",
+      cls: "mod-warning inkedmark-inline-delete",
+    });
+    remove.addEventListener("click", () => void this.removeBlock());
     const discard = footer.createEl("button", { text: "Discard changes" });
     discard.addEventListener("click", () => void this.discard());
     const done = footer.createEl("button", { text: "Done", cls: "mod-cta" });
@@ -205,6 +217,19 @@ export class InlineInkModal extends Modal {
       if (!confirmed) return;
     }
     this.discarded = true;
+    this.close();
+  }
+
+  /** "Delete block": remove the whole block from the note, after confirming (#33). */
+  private async removeBlock(): Promise<void> {
+    const confirmed = await ConfirmModal.confirm(this.app, {
+      title: "Delete this handwriting block?",
+      message: "The drawing and its caption are removed from the note.",
+      cta: "Delete",
+      warning: true,
+    });
+    if (!confirmed) return;
+    this.removed = true;
     this.close();
   }
 
@@ -303,6 +328,12 @@ export class InlineInkModal extends Modal {
     this.captionInput = null;
     this.contentEl.empty();
     if (this.discarded) return;
+    if (this.removed) {
+      // Any transcription still running has nowhere to land: the saver
+      // ignores everything after a removal.
+      this.onSave({ doc: this.inkDoc, caption: null, remove: true });
+      return;
+    }
 
     let savedCaption: string | null | undefined;
     const save = (): void => {

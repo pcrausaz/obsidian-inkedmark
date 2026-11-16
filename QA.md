@@ -66,9 +66,16 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       highlights; Nothing draws with the selected tool. Releasing returns to
       the selected tool; the toolbar never changes. No context menu appears.
 - [ ] Pen eraser end (Surface/Wacom): erases regardless of the selected tool.
-- [ ] Android: if the side button does nothing, turn on the input debug
-      overlay and note the `b=` value / `hv…` tokens while hovering, pressing
-      and writing with the button held (attach to issue #31).
+- [ ] Android, first side button: clicking it while the pen hovers switches the
+      toolbar to the button's tool (Eraser by default) and the next strokes
+      use it; clicking again returns to the previous tool. Picking a tool in
+      the toolbar ends the toggle. Holding the button longer than ~1 s does
+      not toggle. Set to Nothing: clicking does nothing.
+- [ ] Android, second side button (if the pen has one): holding it while
+      writing highlights (default), as on desktop.
+- [ ] Android: with the input debug overlay on, a hover click logs
+      `hv1 hv0 click→eraser`; writing logs `dn` (or `dn:barrel2`); the last
+      line ends with `android`. Attach a screenshot to #31 if anything differs.
 
 ## P1 — Paper guides (1.4)
 
@@ -124,6 +131,12 @@ Tested devices (append as you go): iPad Pro 12.9″ 4th-gen (A12Z, Pencil 2) —
       ink (consent prompt on first cloud use, as in ink notes). With
       **Recognize automatically** on (and consent given), closing the editor
       after drawing fills the caption by itself a moment later.
+- [ ] **Delete block** (#33) asks first; Cancel keeps the editor open, Delete
+      closes it and removes the whole fenced block from the note (no double
+      blank line left behind). Works for a block just inserted with
+      **Insert inline handwriting** (note still open in the editor) and for an
+      existing block opened from reading view. Undo in the note (editor path)
+      brings it back.
 - [ ] **Discard changes** with no edits closes at once; after drawing (or
       typing a caption) it asks first — Cancel keeps the editor open with the
       ink, Discard closes and leaves the block untouched.
@@ -219,6 +232,17 @@ inheritance actually holds on device:
 - [ ] Toggling on-device recognition off while the TrOCR provider is selected
       falls back to the Manual provider.
 - [ ] Input debug overlay toggle updates open ink views immediately.
+- [ ] With the overlay already on, opening an ink note shows the HUD at once
+      ("waiting for pen/touch input"), before anything is drawn.
+- [ ] With the overlay on, the inline-block editor shows the HUD too.
+- [ ] Synced vault: toggle the overlay (or paper guides) on device A; once
+      data.json syncs, device B's open ink views and settings tab follow
+      without a restart.
+- [ ] **Separate sizes** (#34): select the pen, pick 3; select the
+      highlighter, pick 12; back to the pen the size buttons show 3 and new
+      pen strokes are thin; the highlighter shows 12 and highlights are thick.
+      Settings → _Default highlighter size_ sets the highlighter's size when a
+      note (or the inline editor) opens; _Default pen size_ the pen's.
 
 ## P2 — What's new modal
 
