@@ -5,7 +5,7 @@ All notable changes to InkedMark are documented here. The format follows
 [semver](https://semver.org/). The GitHub Release notes for each tag are
 extracted from the matching section of this file by `release.yml`.
 
-## [Unreleased]
+## [1.5.2] - 2026-11-17
 
 ### Added
 
@@ -27,7 +27,9 @@ extracted from the matching section of this file by `release.yml`.
   stroke. Now you **click** the button while the pen hovers above the screen
   to switch to its tool (eraser by default), and click again to switch back.
   The toolbar shows which tool is active. A second side button still works
-  while held.
+  while held. This follows how Android's web view handles stylus buttons; it
+  hasn't been tried on an Android tablet yet, so please report how it behaves
+  with yours.
 - **Input debug overlay**: it now appears as soon as it's on, not only after
   the first stroke, and it works in the inline-block editor too. It also shows
   more about stylus buttons, to help diagnose pens we can't test.
